@@ -42,6 +42,7 @@ dependencies {
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	implementation("com.google.firebase:firebase-admin:9.10.0")
 }
 
 kotlin {
