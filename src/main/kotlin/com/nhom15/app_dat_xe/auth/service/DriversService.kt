@@ -1,7 +1,7 @@
 package com.nhom15.app_dat_xe.service
 
 import com.nhom15.app_dat_xe.entity.Drivers
-import com.nhom15.app_dat_xe.repository.DriversRepository
+import com.nhom15.app_dat_xe.auth.repository.DriversRepository
 import org.springframework.stereotype.Service
 import java.util.Optional
 

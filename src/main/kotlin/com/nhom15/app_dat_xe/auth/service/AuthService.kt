@@ -5,8 +5,8 @@ import com.google.firebase.auth.FirebaseToken
 import com.nhom15.app_dat_xe.dto.LoginResponse
 import com.nhom15.app_dat_xe.entity.Drivers
 import com.nhom15.app_dat_xe.entity.Users
-import com.nhom15.app_dat_xe.repository.DriversRepository
-import com.nhom15.app_dat_xe.repository.UsersRepository
+import com.nhom15.app_dat_xe.auth.repository.DriversRepository
+import com.nhom15.app_dat_xe.auth.repository.UsersRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 

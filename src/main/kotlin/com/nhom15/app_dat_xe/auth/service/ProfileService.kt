@@ -2,8 +2,8 @@ package com.nhom15.app_dat_xe.service
 
 import com.google.firebase.auth.FirebaseAuth
 import com.nhom15.app_dat_xe.dto.ProfileResponse
-import com.nhom15.app_dat_xe.repository.DriversRepository
-import com.nhom15.app_dat_xe.repository.UsersRepository
+import com.nhom15.app_dat_xe.auth.repository.DriversRepository
+import com.nhom15.app_dat_xe.auth.repository.UsersRepository
 import org.springframework.stereotype.Service
 
 @Service
