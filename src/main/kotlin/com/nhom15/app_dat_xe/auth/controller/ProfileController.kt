@@ -1,9 +1,9 @@
-package com.nhom15.app_dat_xe.controller
+package com.nhom15.app_dat_xe.auth.controller
 
-import com.nhom15.app_dat_xe.dto.ProfileResponse
-import com.nhom15.app_dat_xe.service.ProfileService
+import com.nhom15.app_dat_xe.auth.dto.ProfileResponse
+import com.nhom15.app_dat_xe.auth.service.ProfileService
 import org.springframework.web.bind.annotation.*
-import com.nhom15.app_dat_xe.service.AvatarStorageService
+import com.nhom15.app_dat_xe.auth.service.AvatarStorageService
 import org.springframework.web.multipart.MultipartFile
 
 @RestController

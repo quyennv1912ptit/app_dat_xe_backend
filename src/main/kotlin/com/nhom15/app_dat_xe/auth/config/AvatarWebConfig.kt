@@ -1,4 +1,4 @@
-package com.nhom15.app_dat_xe.config
+package com.nhom15.app_dat_xe.auth.config
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration

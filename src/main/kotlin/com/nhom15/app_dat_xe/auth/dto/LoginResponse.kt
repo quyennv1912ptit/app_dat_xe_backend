@@ -1,4 +1,4 @@
-package com.nhom15.app_dat_xe.dto
+package com.nhom15.app_dat_xe.auth.dto
 
 class LoginResponse {
 

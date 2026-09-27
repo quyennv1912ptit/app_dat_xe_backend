@@ -1,4 +1,4 @@
-package com.nhom15.app_dat_xe.service
+package com.nhom15.app_dat_xe.auth.service
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseToken

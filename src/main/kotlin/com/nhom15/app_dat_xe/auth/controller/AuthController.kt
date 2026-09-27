@@ -1,10 +1,10 @@
-package com.nhom15.app_dat_xe.controller
+package com.nhom15.app_dat_xe.auth.controller
 
-import com.nhom15.app_dat_xe.dto.LinkPhoneRequest
-import com.nhom15.app_dat_xe.dto.LoginRequest
-import com.nhom15.app_dat_xe.dto.LoginResponse
-import com.nhom15.app_dat_xe.dto.RegisterRequest
-import com.nhom15.app_dat_xe.service.AuthService
+import com.nhom15.app_dat_xe.auth.dto.LinkPhoneRequest
+import com.nhom15.app_dat_xe.auth.dto.LoginRequest
+import com.nhom15.app_dat_xe.auth.dto.LoginResponse
+import com.nhom15.app_dat_xe.auth.dto.RegisterRequest
+import com.nhom15.app_dat_xe.auth.service.AuthService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*

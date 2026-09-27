@@ -1,4 +1,4 @@
-package com.nhom15.app_dat_xe.config
+package com.nhom15.app_dat_xe.auth.config
 
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp

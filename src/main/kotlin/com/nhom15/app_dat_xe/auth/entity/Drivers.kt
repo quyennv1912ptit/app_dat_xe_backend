@@ -1,4 +1,4 @@
-package com.nhom15.app_dat_xe.entity
+package com.nhom15.app_dat_xe.auth.entity
 
 import jakarta.persistence.*
 import java.math.BigDecimal
