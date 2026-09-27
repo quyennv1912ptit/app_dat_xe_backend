@@ -1,0 +1,11 @@
+package com.nhom15.app_dat_xe.dto
+
+data class ProfileResponse(
+    val id: Long?,
+    val uid: String?,
+    val fullName: String?,
+    val email: String?,
+    val phoneNumber: String?,
+    val avatarUrl: String?,
+    val role: String?
+)
