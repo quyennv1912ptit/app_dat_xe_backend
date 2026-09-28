@@ -67,20 +67,20 @@ class GlobalExceptionHandler {
         return respond(HttpStatus.CONFLICT, ErrorCode.CONFLICT)
     }
 
-    /** Lỗi 4xx có sẵn của Spring MVC (405, 415, 404 static...) giữ nguyên status. */
-    @ExceptionHandler(ErrorResponse::class)
-    fun handleSpringError(e: ErrorResponse): ResponseEntity<ApiResponse<Nothing>> {
+    @ExceptionHandler(Exception::class)
+    fun handleUnexpected(e: Exception): ResponseEntity<ApiResponse<Nothing>> {
+        // Lỗi 4xx có sẵn của Spring MVC (405, 415, 404 static...) giữ nguyên status
+        if (e is ErrorResponse) return handleSpringError(e)
+
+        log.error("Unhandled exception", e)
+        return respond(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_ERROR)
+    }
+
+    private fun handleSpringError(e: ErrorResponse): ResponseEntity<ApiResponse<Nothing>> {
         val status = e.statusCode
         val code = if (status.value() == 404) ErrorCode.NOT_FOUND else ErrorCode.BAD_REQUEST
         return ResponseEntity.status(status)
             .body(ApiResponse.fail(code, e.body.detail ?: code.defaultMessage))
-    }
-
-    /** Lưới an toàn cuối cùng: không lộ stacktrace ra ngoài. */
-    @ExceptionHandler(Exception::class)
-    fun handleUnexpected(e: Exception): ResponseEntity<ApiResponse<Nothing>> {
-        log.error("Unhandled exception", e)
-        return respond(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_ERROR)
     }
 
     private fun respond(
