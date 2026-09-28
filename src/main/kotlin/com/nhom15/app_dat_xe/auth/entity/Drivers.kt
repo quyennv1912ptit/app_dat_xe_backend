@@ -1,5 +1,6 @@
 package com.nhom15.app_dat_xe.auth.entity
 
+import com.nhom15.app_dat_xe.common.enums.DriverStatus
 import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -34,32 +35,30 @@ class Drivers {
     @Column(name = "license_number")
     var licenseNumber: String? = null
 
+    @Column(name = "license_class", length = 10)
+    var licenseClass: String? = null
+
     @Column(name = "license_expiry_date")
     var licenseExpiryDate: LocalDate? = null
 
     @Column(name = "license_verified")
     var licenseVerified: Boolean? = null
 
-    @Column(name = "current_vehicle_id")
-    var currentVehicleId: Long? = null
+    @Column(name = "years_of_experience")
+    var yearsOfExperience: Int? = null
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    var status: String? = null
+    var status: DriverStatus = DriverStatus.OFFLINE
 
     @Column(name = "online_status")
     var onlineStatus: String? = null
-
-    @Column(name = "current_lat")
-    var currentLat: Double? = null
-
-    @Column(name = "current_lng")
-    var currentLng: Double? = null
 
     @Column(name = "last_location_update")
     var lastLocationUpdate: LocalDateTime? = null
 
     @Column(name = "average_rating")
-    var averageRating: Double? = null
+    var averageRating: Double = 5.0
 
     @Column(name = "total_trips")
     var totalTrips: Int = 0
@@ -92,7 +91,7 @@ class Drivers {
     var isFlagged: Boolean? = null
 
     @Column(name = "gps_spoofing_count")
-    var gpsSpoofingCount: Int = 0
+    var gpsSpoofingCount: Int? = null
 
     @Column(name = "multi_account_flag")
     var multiAccountFlag: Boolean? = null

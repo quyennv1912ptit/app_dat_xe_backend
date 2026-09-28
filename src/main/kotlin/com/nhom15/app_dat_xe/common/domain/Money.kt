@@ -1,4 +1,4 @@
-package  com.nhom15.app_dat_xe.common.domain
+package com.nhom15.app_dat_xe.common.domain
 
 /**
  * Số tiền VND, lưu bằng Long (không dùng Double để tránh sai số).
