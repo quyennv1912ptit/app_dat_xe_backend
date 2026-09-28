@@ -279,3 +279,14 @@ là xong.
 | **POST** | `/bookings/{id}/damage-claims` | Báo cáo sự cố hư hỏng xe (Tùy chọn) |
 
 > **📌 Xử lý logic lõi:** Lắng nghe sự kiện `TripCompleted` từ module 2A để chốt `finalFare`. Quá trình trừ chiết khấu hoa hồng và cộng tiền vào ví tài xế phải được bọc trong một hàm `@Transactional` nguyên vẹn. Sau khi thanh toán xử lý xong, phát sự kiện `PaymentCompleted`.
+
+
+### 📌 Cấu Trúc Redis Hệ Thống
+
+| Key Pattern | Kiểu dữ liệu | Mô tả ngắn gọn |
+| --- | --- | --- |
+| `driver:locations` | GEO | Lưu tọa độ tài xế để truy vấn bán kính (GEOSEARCH). |
+| `driver:availability:{id}` | Hash | Trạng thái rảnh/bận, kèm TTL tự xóa nếu mất kết nối. |
+| `booking:{id}:offers` | Hash | Các lời mời nhận cuốc đang được chờ tài xế xác nhận. |
+| `driver:stats:{id}` | Hash | Thống kê tỷ lệ nhận/hủy cuốc (dùng `HINCRBY` để tính toán nhanh). |
+| `trip:{id}:track` | Stream / List | Ghi nhận liên tục GPS suốt hành trình để vẽ lại trên bản đồ. |
