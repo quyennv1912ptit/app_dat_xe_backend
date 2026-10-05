@@ -1,65 +1,42 @@
 package com.nhom15.app_dat_xe.auth.controller
 
 import com.nhom15.app_dat_xe.auth.dto.ProfileResponse
+import com.nhom15.app_dat_xe.auth.dto.UpdateAvatarRequest
 import com.nhom15.app_dat_xe.auth.service.ProfileService
-import org.springframework.web.bind.annotation.*
-import com.nhom15.app_dat_xe.auth.service.AvatarStorageService
+import com.nhom15.app_dat_xe.common.api.ApiResponse
+import com.nhom15.app_dat_xe.common.security.AuthUser
+import com.nhom15.app_dat_xe.common.security.CurrentUser
+import jakarta.validation.Valid
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("/api/profile")
 class ProfileController(
-    private val profileService: ProfileService,
-    private val avatarStorageService: AvatarStorageService
+    private val profileService: ProfileService
 ) {
+
     @GetMapping
-    fun getProfile(
-        @RequestHeader("Authorization") authorization: String,
-        @RequestParam role: String
-    ): ProfileResponse {
-        val idToken = authorization.removePrefix("Bearer ")
-        return profileService.getProfile(
-            idToken,
-            role
-        )
-    }
+    fun getProfile(@CurrentUser user: AuthUser): ApiResponse<ProfileResponse> =
+        ApiResponse.ok(profileService.getProfile(user))
 
     @PutMapping("/avatar")
     fun updateAvatar(
-        @RequestHeader("Authorization") authorization: String,
-        @RequestParam role: String,
-        @RequestBody request: UpdateAvatarRequest
-    ): ProfileResponse {
+        @CurrentUser user: AuthUser,
+        @Valid @RequestBody request: UpdateAvatarRequest
+    ): ApiResponse<ProfileResponse> =
+        ApiResponse.ok(profileService.updateAvatar(user, request.avatarUrl))
 
-        val idToken = authorization.removePrefix("Bearer ")
-
-        return profileService.updateAvatar(
-            idToken,
-            role,
-            request.avatarUrl
-        )
-    }
     @PostMapping("/avatar/upload")
     fun uploadAvatar(
-        @RequestHeader("Authorization") authorization: String,
-        @RequestParam role: String,
+        @CurrentUser user: AuthUser,
         @RequestParam("file") file: MultipartFile
-    ): ProfileResponse {
-
-        val idToken = authorization.removePrefix("Bearer ")
-
-        val fileName = avatarStorageService.saveAvatar(file)
-
-        val avatarUrl = "http://10.0.2.2:8080/uploads/avatars/$fileName"
-
-        return profileService.updateAvatar(
-            idToken,
-            role,
-            avatarUrl
-        )
-    }
+    ): ApiResponse<ProfileResponse> =
+        ApiResponse.ok(profileService.uploadAvatar(user, file))
 }
-
-data class UpdateAvatarRequest(
-    val avatarUrl: String
-)

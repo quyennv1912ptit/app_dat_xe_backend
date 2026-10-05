@@ -6,33 +6,27 @@ import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.io.IOException
-import java.io.InputStream
+import org.springframework.core.io.ClassPathResource
 
 @Configuration
 class FirebaseConfig {
 
     @Bean
-    @Throws(IOException::class)
     fun firebaseApp(): FirebaseApp {
+        // Tránh lỗi "FirebaseApp name [DEFAULT] already exists" khi devtools restart
+        FirebaseApp.getApps().firstOrNull()?.let { return it }
 
-        val serviceAccount: InputStream? =
-            javaClass.classLoader
-                .getResourceAsStream("firebase-service-account.json")
+        val resource = ClassPathResource("firebase-service-account.json")
+        check(resource.exists()) { "Không tìm thấy firebase-service-account.json trong resources" }
 
-        if (serviceAccount == null) {
-            throw IOException("Không tìm thấy firebase-service-account.json")
+        val options = resource.inputStream.use { stream ->
+            FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.fromStream(stream))
+                .build()
         }
-
-        val options = FirebaseOptions.builder()
-            .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-            .build()
-
         return FirebaseApp.initializeApp(options)
     }
 
     @Bean
-    fun firebaseAuth(firebaseApp: FirebaseApp): FirebaseAuth {
-        return FirebaseAuth.getInstance(firebaseApp)
-    }
+    fun firebaseAuth(firebaseApp: FirebaseApp): FirebaseAuth = FirebaseAuth.getInstance(firebaseApp)
 }

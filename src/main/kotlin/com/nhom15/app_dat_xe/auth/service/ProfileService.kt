@@ -1,81 +1,43 @@
 package com.nhom15.app_dat_xe.auth.service
 
-import com.google.firebase.auth.FirebaseAuth
 import com.nhom15.app_dat_xe.auth.dto.ProfileResponse
-import com.nhom15.app_dat_xe.auth.repository.DriversRepository
-import com.nhom15.app_dat_xe.auth.repository.UsersRepository
+import com.nhom15.app_dat_xe.common.api.ErrorCode
+import com.nhom15.app_dat_xe.common.exception.BadRequestException
+import com.nhom15.app_dat_xe.common.security.AuthUser
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
 
+/** Người dùng lấy từ [AuthUser] (do filter đặt), service không tự verify token nữa. */
 @Service
-class ProfileService(private val firebaseAuth: FirebaseAuth,
-    private val usersRepository: UsersRepository, private val driversRepository: DriversRepository) {
+class ProfileService(
+    private val accountService: AccountService,
+    private val avatarStorageService: AvatarStorageService
+) {
 
-    fun getProfile(idToken: String, role: String)
-    : ProfileResponse {
+    @Transactional(readOnly = true)
+    fun getProfile(user: AuthUser): ProfileResponse =
+        accountService.getById(user.userId, user.role).toProfileResponse()
 
-        val firebaseToken =
-            firebaseAuth.verifyIdToken(idToken)
-
-        val uid = firebaseToken.uid
-
-        if (role.equals("CUSTOMER", ignoreCase = true)) {
-
-            val user = usersRepository
-                .findByFirebaseUid(uid)
-                .orElseThrow { Exception("CUSTOMER account does not exist") }
-
-            return ProfileResponse(user.id, uid, user.fullName,
-                user.email, user.phoneNumber, user.avatarUrl, "CUSTOMER")
+    @Transactional
+    fun updateAvatar(user: AuthUser, avatarUrl: String): ProfileResponse {
+        val url = avatarUrl.trim()
+        if (!(url.startsWith("http://") || url.startsWith("https://")) || url.length > MAX_URL_LENGTH) {
+            throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Đường dẫn ảnh không hợp lệ")
         }
-
-        if (role.equals("DRIVER", ignoreCase = true)) {
-
-            val driver = driversRepository.findByFirebaseUid(uid)
-                .orElseThrow { Exception("DRIVER account does not exist") }
-
-            return ProfileResponse(driver.id, uid, driver.fullName,
-                driver.email, driver.phoneNumber, driver.avatarUrl, "DRIVER")
-        }
-
-        throw Exception("Invalid role")
+        return accountService.updateAvatar(user.userId, user.role, url).toProfileResponse()
     }
 
-    fun updateAvatar(idToken: String, role: String, avatarUrl: String)
-    : ProfileResponse {
+    @Transactional
+    fun uploadAvatar(user: AuthUser, file: MultipartFile): ProfileResponse {
+        val url = avatarStorageService.saveAvatar(file)
+        return accountService.updateAvatar(user.userId, user.role, url).toProfileResponse()
+    }
 
-        val firebaseToken = firebaseAuth.verifyIdToken(idToken)
+    private fun Account.toProfileResponse() =
+        ProfileResponse(id, firebaseUid, fullName, email, phoneNumber, avatarUrl, role.name)
 
-        val uid = firebaseToken.uid
-
-        if (role.equals("CUSTOMER", ignoreCase = true)) {
-
-            val user = usersRepository
-                .findByFirebaseUid(uid)
-                .orElseThrow { Exception("CUSTOMER account does not exist") }
-
-            user.avatarUrl = avatarUrl
-
-            val savedUser = usersRepository.save(user)
-
-            return ProfileResponse(savedUser.id, uid, savedUser.fullName,
-                savedUser.email, savedUser.phoneNumber, savedUser.avatarUrl, "CUSTOMER")
-        }
-
-        if (role.equals("DRIVER", ignoreCase = true)) {
-
-            val driver = driversRepository
-                .findByFirebaseUid(uid)
-                .orElseThrow { Exception("DRIVER account does not exist") }
-
-            driver.avatarUrl = avatarUrl
-
-            val savedDriver =
-                driversRepository.save(driver)
-
-            return ProfileResponse(savedDriver.id, uid, savedDriver.fullName,
-                savedDriver.email, savedDriver.phoneNumber, savedDriver.avatarUrl, "DRIVER")
-        }
-
-        throw Exception("Invalid role")
+    private companion object {
+        const val MAX_URL_LENGTH = 500
     }
 }
