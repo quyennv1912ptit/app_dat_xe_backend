@@ -1,6 +1,6 @@
 package com.nhom15.app_dat_xe.auth.security
 
-import com.nhom15.app_dat_xe.auth.service.AccountService
+import com.nhom15.app_dat_xe.account.service.AccountService
 import com.nhom15.app_dat_xe.auth.service.FirebaseAuthService
 import com.nhom15.app_dat_xe.common.api.ErrorCode
 import com.nhom15.app_dat_xe.common.enums.Role
