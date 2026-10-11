@@ -17,7 +17,7 @@ class ProfileService(
 
     @Transactional(readOnly = true)
     fun getProfile(user: AuthUser): ProfileResponse =
-        accountService.getById(user.userId, user.role).toProfileResponse()
+        accountService.getById(user.id, user.role).toProfileResponse()
 
     @Transactional
     fun updateAvatar(user: AuthUser, avatarUrl: String): ProfileResponse {
@@ -25,13 +25,13 @@ class ProfileService(
         if (!(url.startsWith("http://") || url.startsWith("https://")) || url.length > MAX_URL_LENGTH) {
             throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Đường dẫn ảnh không hợp lệ")
         }
-        return accountService.updateAvatar(user.userId, user.role, url).toProfileResponse()
+        return accountService.updateAvatar(user.id, user.role, url).toProfileResponse()
     }
 
     @Transactional
     fun uploadAvatar(user: AuthUser, file: MultipartFile): ProfileResponse {
         val url = avatarStorageService.saveAvatar(file)
-        return accountService.updateAvatar(user.userId, user.role, url).toProfileResponse()
+        return accountService.updateAvatar(user.id, user.role, url).toProfileResponse()
     }
 
     private fun Account.toProfileResponse() =
