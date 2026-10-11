@@ -1,3 +1,4 @@
+
 package com.nhom15.app_dat_xe.ride.entity
 
 import com.nhom15.app_dat_xe.common.domain.Location
@@ -6,7 +7,16 @@ import com.nhom15.app_dat_xe.common.enums.PaymentMethod
 import com.nhom15.app_dat_xe.common.enums.RideStatus
 import com.nhom15.app_dat_xe.common.enums.Transmission
 import com.nhom15.app_dat_xe.common.enums.VehicleType
-import jakarta.persistence.*
+import jakarta.persistence.AttributeOverride
+import jakarta.persistence.AttributeOverrides
+import jakarta.persistence.Column
+import jakarta.persistence.Embedded
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
+import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.Instant
 
 @Entity
@@ -31,17 +41,35 @@ class Rides(
 
     @Embedded
     @AttributeOverrides(
-        AttributeOverride(name = "lat", column = Column(name = "pickup_lat", nullable = false)),
-        AttributeOverride(name = "lng", column = Column(name = "pickup_lng", nullable = false)),
-        AttributeOverride(name = "address", column = Column(name = "pickup_address", nullable = false))
+        AttributeOverride(
+            name = "geoPoint.lat",
+            column = Column(name = "pickup_lat", nullable = false)
+        ),
+        AttributeOverride(
+            name = "geoPoint.lng",
+            column = Column(name = "pickup_lng", nullable = false)
+        ),
+        AttributeOverride(
+            name = "address",
+            column = Column(name = "pickup_address", nullable = false)
+        )
     )
     val pickup: Location,
 
     @Embedded
     @AttributeOverrides(
-        AttributeOverride(name = "lat", column = Column(name = "dropoff_lat", nullable = false)),
-        AttributeOverride(name = "lng", column = Column(name = "dropoff_lng", nullable = false)),
-        AttributeOverride(name = "address", column = Column(name = "dropoff_address", nullable = false))
+        AttributeOverride(
+            name = "geoPoint.lat",
+            column = Column(name = "dropoff_lat", nullable = false)
+        ),
+        AttributeOverride(
+            name = "geoPoint.lng",
+            column = Column(name = "dropoff_lng", nullable = false)
+        ),
+        AttributeOverride(
+            name = "address",
+            column = Column(name = "dropoff_address", nullable = false)
+        )
     )
     val dropoff: Location,
 
@@ -91,7 +119,7 @@ class Rides(
     var cancelReason: String? = null
 ) : BaseEntity() {
 
-    /** Khoá lạc quan: hai luồng cùng sửa một chuyến (nhận và huỷ) thì bên ghi sau bị từ chối thay vì ghi đè. */
+    /** Khóa lạc quan: tránh hai luồng cùng sửa một chuyến và ghi đè dữ liệu. */
     @Version
     @Column(name = "version", nullable = false)
     var version: Long = 0
