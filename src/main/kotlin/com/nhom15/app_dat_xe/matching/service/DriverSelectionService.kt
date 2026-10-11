@@ -21,8 +21,7 @@ class DriverSelectionService(
         // Tạo map id -> driver
         val driversById: Map<Long, Drivers> = driverRepository
             .findAllById(nearbyDrivers.map { it.driverId })
-            .mapNotNull { d -> d.id?.let { id -> id to d } }
-            .toMap()
+            .associateBy { it.id }
 
         return nearbyDrivers
             .mapNotNull { nearby ->
@@ -40,33 +39,24 @@ class DriverSelectionService(
 
     fun isEligible(driver: Drivers, requiredTransmission: Transmission): Boolean {
         if (driver.status != DriverStatus.ONLINE) return false
-        if (driver.licenseVerified != true) return false
-        if (driver.isFlagged == true) return false
+
         if (requiredTransmission == Transmission.MANUAL && driver.licenseClass == "B1") return false
+
         return true
     }
 
     private fun calculateScore(driver: Drivers, distanceKm: Double): Double {
-        val rating = driver.averageRating ?: 5.0
-        val completion = driver.completionRate ?: 1.0
-        val acceptance = driver.acceptanceRate ?: 1.0
-        val cancelRate = driver.cancelRate30d ?: 0.0
+        val rating = driver.averageRating
         val experience = driver.yearsOfExperience ?: 0
-        val risk = driver.riskScore ?: 0.0
 
         var score = 0.0
 
         score += rating * 10.0
-        score += completion * 20.0
-        score += acceptance * 10.0
 
         score += (experience * 2.0).coerceAtMost(10.0)
 
-        score -= cancelRate * 30.0
-        score -= risk * 10.0
         score -= distanceKm * 5.0
 
         return score
     }
-
 }

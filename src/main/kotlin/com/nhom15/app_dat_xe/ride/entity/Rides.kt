@@ -31,19 +31,19 @@ class Rides(
 
     @Embedded
     @AttributeOverrides(
-        AttributeOverride(name = "lat", column = Column(name = "pickup_lat", nullable = false)),
-        AttributeOverride(name = "lng", column = Column(name = "pickup_lng", nullable = false)),
-        AttributeOverride(name = "address", column = Column(name = "pickup_address", nullable = false))
+        AttributeOverride(name = "geoPoint.lat", column = Column(name = "pickup_lat")),
+        AttributeOverride(name = "geoPoint.lng", column = Column(name = "pickup_lng")),
+        AttributeOverride(name = "address", column = Column(name = "pickup_address"))
     )
-    val pickup: Location,
+    var pickup: Location,
 
     @Embedded
     @AttributeOverrides(
-        AttributeOverride(name = "lat", column = Column(name = "dropoff_lat", nullable = false)),
-        AttributeOverride(name = "lng", column = Column(name = "dropoff_lng", nullable = false)),
-        AttributeOverride(name = "address", column = Column(name = "dropoff_address", nullable = false))
+        AttributeOverride(name = "geoPoint.lat", column = Column(name = "dropoff_lat")),
+        AttributeOverride(name = "geoPoint.lng", column = Column(name = "dropoff_lng")),
+        AttributeOverride(name = "address", column = Column(name = "dropoff_address"))
     )
-    val dropoff: Location,
+    var dropoff: Location,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "vehicle_type", nullable = false, length = 30)
@@ -61,6 +61,9 @@ class Rides(
 
     @Column(name = "final_fare")
     var finalFare: Long? = null,
+
+    @Column(name = "discount_amount")
+    var discountAmount: Long = 0, // Bổ sung để xử lý mã giảm giá
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 30)
@@ -91,7 +94,6 @@ class Rides(
     var cancelReason: String? = null
 ) : BaseEntity() {
 
-    /** Khoá lạc quan: hai luồng cùng sửa một chuyến (nhận và huỷ) thì bên ghi sau bị từ chối thay vì ghi đè. */
     @Version
     @Column(name = "version", nullable = false)
     var version: Long = 0
