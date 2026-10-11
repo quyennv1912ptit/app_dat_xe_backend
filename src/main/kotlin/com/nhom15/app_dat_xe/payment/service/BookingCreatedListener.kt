@@ -1,21 +1,17 @@
-// Lắng nghe sự kiện BookingCreated để khởi tạo luồng xử lý thanh toán.
 
 package com.nhom15.app_dat_xe.payment.service
 
-import com.nhom15.app_dat_xe.common.event.BookingCreated
+import com.nhom15.app_dat_xe.ride.event.RideRequested
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
 @Component
-class BookingCreatedListener(
-    private val paymentService: PaymentService
-) {
+class BookingCreatedListener {
 
     @EventListener
-    fun handleBookingCreated(event: BookingCreated) {
-
+    fun handleRideRequested(event: RideRequested) {
         println(
-            "Payment nhận BookingCreated: bookingId=${event.bookingId}, " +
+            "Nhận yêu cầu chuyến đi: rideId=${event.rideId}, " +
             "customerId=${event.customerId}"
         )
     }

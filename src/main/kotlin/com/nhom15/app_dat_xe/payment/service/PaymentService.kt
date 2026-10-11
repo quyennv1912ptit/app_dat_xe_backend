@@ -1,14 +1,13 @@
-// Xử lý nghiệp vụ tạo, cập nhật và truy vấn thanh toán.
 
 package com.nhom15.app_dat_xe.payment.service
 
 import com.nhom15.app_dat_xe.common.enums.PaymentStatus
 import com.nhom15.app_dat_xe.common.event.EventPublisher
-import com.nhom15.app_dat_xe.common.event.PaymentCompleted
 import com.nhom15.app_dat_xe.common.port.BookingPaymentInfoPort
 import com.nhom15.app_dat_xe.payment.dto.CreatePaymentRequest
 import com.nhom15.app_dat_xe.payment.dto.PaymentResponse
 import com.nhom15.app_dat_xe.payment.entity.Payment
+import com.nhom15.app_dat_xe.payment.event.RidePaymentCompleted
 import com.nhom15.app_dat_xe.payment.repository.PaymentRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -21,19 +20,16 @@ class PaymentService(
     private val paymentCalculationService: PaymentCalculationService,
     private val eventPublisher: EventPublisher
 ) {
-
     @Transactional
     fun createPayment(request: CreatePaymentRequest): PaymentResponse {
-
         val bookingId = request.bookingId
             ?: throw IllegalArgumentException("bookingId không được để trống")
 
         val method = request.method
             ?: throw IllegalArgumentException("payment method không được để trống")
 
-        val existingPayment = paymentRepository
-            .findByBookingId(bookingId)
-            .orElse(null)
+        val existingPayment =
+            paymentRepository.findByBookingId(bookingId).orElse(null)
 
         if (existingPayment != null) {
             return toResponse(existingPayment)
@@ -42,30 +38,24 @@ class PaymentService(
         val bookingInfo = bookingPaymentInfoPort.getPaymentInfo(bookingId)
 
         val payment = Payment()
-
         payment.bookingId = bookingInfo.bookingId
         payment.customerId = bookingInfo.customerId
         payment.driverId = bookingInfo.driverId
-        payment.amount =
-            paymentCalculationService.calculateAmount(bookingInfo)
+        payment.amount = paymentCalculationService.calculateAmount(bookingInfo)
         payment.method = method
         payment.status = PaymentStatus.PENDING
         payment.createdAt = Instant.now()
 
-        val savedPayment = paymentRepository.save(payment)
-
-        return toResponse(savedPayment)
+        return toResponse(paymentRepository.save(payment))
     }
 
     @Transactional
     fun markAsPaid(paymentId: Long): PaymentResponse {
-
-        val payment = paymentRepository.findById(paymentId)
-            .orElseThrow {
-                IllegalArgumentException(
-                    "Không tìm thấy payment với id = $paymentId"
-                )
-            }
+        val payment = paymentRepository.findById(paymentId).orElseThrow {
+            IllegalArgumentException(
+                "Không tìm thấy payment với id = $paymentId"
+            )
+        }
 
         if (payment.status == PaymentStatus.PAID) {
             return toResponse(payment)
@@ -76,13 +66,11 @@ class PaymentService(
         payment.updatedAt = Instant.now()
 
         val savedPayment = paymentRepository.save(payment)
-
         val driverId = savedPayment.driverId
 
         if (driverId != null) {
-
-            val event = PaymentCompleted(
-                bookingId = savedPayment.bookingId,
+            val event = RidePaymentCompleted(
+                rideId = savedPayment.bookingId,
                 paymentId = savedPayment.id!!,
                 customerId = savedPayment.customerId,
                 driverId = driverId,
@@ -99,8 +87,8 @@ class PaymentService(
     }
 
     fun getPaymentByBookingId(bookingId: Long): PaymentResponse {
-
-        val payment = paymentRepository.findByBookingId(bookingId)
+        val payment = paymentRepository
+            .findByBookingId(bookingId)
             .orElseThrow {
                 IllegalArgumentException(
                     "Không tìm thấy payment của booking = $bookingId"
@@ -111,7 +99,6 @@ class PaymentService(
     }
 
     private fun toResponse(payment: Payment): PaymentResponse {
-
         return PaymentResponse(
             id = payment.id!!,
             bookingId = payment.bookingId,

@@ -2,7 +2,7 @@
 package com.nhom15.app_dat_xe.payment.service
 
 import com.nhom15.app_dat_xe.common.enums.PaymentStatus
-import com.nhom15.app_dat_xe.common.event.PaymentCompleted
+import com.nhom15.app_dat_xe.payment.event.RidePaymentCompleted
 import com.nhom15.app_dat_xe.payment.repository.DriverEarningRepository
 import com.nhom15.app_dat_xe.payment.repository.PaymentRepository
 import org.springframework.context.event.EventListener
@@ -14,28 +14,24 @@ class PaymentCompletedWalletListener(
     private val paymentRepository: PaymentRepository,
     private val driverEarningRepository: DriverEarningRepository
 ) {
-
     @EventListener
     @Transactional
-    fun handlePaymentCompleted(event: PaymentCompleted) {
+    fun handlePaymentCompleted(event: RidePaymentCompleted) {
         val payment = paymentRepository.findById(event.paymentId)
-            .orElse(null)
-            ?: return
+            .orElse(null) ?: return
 
-        // Chỉ ghi thu nhập khi payment đã được xác nhận PAID.
         if (payment.status != PaymentStatus.PAID) {
             return
         }
 
-        // Đảm bảo sự kiện khớp với payment trong database.
         if (
-            payment.bookingId != event.bookingId ||
+            payment.bookingId != event.rideId ||
             payment.customerId != event.customerId ||
             payment.driverId != event.driverId ||
             payment.amount != event.amount.amount
         ) {
             throw IllegalStateException(
-                "PaymentCompleted không khớp payment id=${event.paymentId}"
+                "RidePaymentCompleted không khớp payment id=${event.paymentId}"
             )
         }
 

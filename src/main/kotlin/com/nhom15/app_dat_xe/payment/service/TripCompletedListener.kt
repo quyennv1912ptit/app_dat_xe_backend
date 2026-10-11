@@ -1,52 +1,52 @@
-// Lắng nghe sự kiện TripCompleted để kiểm tra trạng thái thanh toán của chuyến đi.
 
 package com.nhom15.app_dat_xe.payment.service
 
-import com.nhom15.app_dat_xe.common.event.TripCompleted
 import com.nhom15.app_dat_xe.common.enums.PaymentStatus
 import com.nhom15.app_dat_xe.payment.repository.PaymentRepository
+import com.nhom15.app_dat_xe.ride.event.RideCompleted
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
+// Lắng nghe sự kiện RideCompleted để kiểm tra trạng thái thanh toán.
 @Component
 class TripCompletedListener(
     private val paymentRepository: PaymentRepository
 ) {
 
     @EventListener
-    fun handleTripCompleted(event: TripCompleted) {
+    fun handleRideCompleted(event: RideCompleted) {
 
         val payment = paymentRepository
-            .findByBookingId(event.bookingId)
+            .findByBookingId(event.rideId)
             .orElse(null)
 
         if (payment == null) {
             println(
-                "TripCompleted: chưa có Payment cho bookingId=${event.bookingId}"
+                "RideCompleted: chưa có Payment cho rideId=${event.rideId}"
             )
             return
         }
 
         if (payment.status == PaymentStatus.PAID) {
             println(
-                "TripCompleted: Payment đã PAID, không thanh toán lại. " +
-                "bookingId=${event.bookingId}"
+                "RideCompleted: Payment đã PAID, không thanh toán lại. " +
+                    "rideId=${event.rideId}"
             )
             return
         }
 
         if (payment.status == PaymentStatus.PENDING) {
             println(
-                "TripCompleted: Payment đang PENDING. " +
-                "bookingId=${event.bookingId}, " +
-                "finalFare=${event.finalFare.amount}"
+                "RideCompleted: Payment đang PENDING. " +
+                    "rideId=${event.rideId}, " +
+                    "finalFare=${event.finalFare.amount}"
             )
             return
         }
 
         println(
-            "TripCompleted: Payment có trạng thái ${payment.status}. " +
-            "bookingId=${event.bookingId}"
+            "RideCompleted: Payment có trạng thái ${payment.status}. " +
+                "rideId=${event.rideId}"
         )
     }
 }

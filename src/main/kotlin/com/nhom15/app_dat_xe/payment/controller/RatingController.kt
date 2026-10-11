@@ -15,21 +15,17 @@ import org.springframework.web.bind.annotation.*
 class RatingController(
     private val ratingService: RatingService
 ) {
-
     @PostMapping("/{bookingId}/ratings")
     fun createRating(
         @PathVariable bookingId: Long,
         @CurrentUser currentUser: AuthUser,
         @Valid @RequestBody request: CreateRatingRequest
     ): ResponseEntity<RatingResponse> {
-
-        val ratingRequest = request.copy(
-            bookingId = bookingId
-        )
+        val ratingRequest = request.copy(bookingId = bookingId)
 
         val rating = ratingService.createRating(
             request = ratingRequest,
-            raterId = currentUser.userId
+            raterId = currentUser.id
         )
 
         return ResponseEntity.ok(rating)

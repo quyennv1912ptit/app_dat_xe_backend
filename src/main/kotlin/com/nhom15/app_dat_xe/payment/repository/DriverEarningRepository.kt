@@ -1,7 +1,7 @@
 
 package com.nhom15.app_dat_xe.payment.repository
 
-import com.nhom15.app_dat_xe.common.event.PaymentCompleted
+import com.nhom15.app_dat_xe.payment.event.RidePaymentCompleted
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
@@ -13,14 +13,14 @@ class DriverEarningRepository(
 ) {
 
     @Transactional
-    fun recordEarning(event: PaymentCompleted): Boolean {
+    fun recordEarning(event: RidePaymentCompleted): Boolean {
         val amount = BigDecimal.valueOf(event.amount.amount)
 
         require(amount > BigDecimal.ZERO) {
             "Số tiền thu nhập phải lớn hơn 0"
         }
 
-        // Chỉ tạo một giao dịch thu nhập cho mỗi booking của tài xế.
+        // Chỉ tạo một giao dịch thu nhập cho mỗi chuyến đi của tài xế.
         val inserted = jdbcTemplate.update(
             """
             INSERT INTO wallet_transactions (
@@ -39,12 +39,12 @@ class DriverEarningRepository(
             DO NOTHING
             """.trimIndent(),
             event.driverId,
-            event.bookingId,
+            event.rideId,
             amount,
-            "Thu nhập chuyến đi #${event.bookingId}"
+            "Thu nhập chuyến đi #${event.rideId}"
         )
 
-        // Giao dịch đã tồn tại: không cộng số dư lần nữa.
+        // Giao dịch đã tồn tại thì không cộng số dư thêm lần nữa.
         if (inserted == 0) {
             return false
         }

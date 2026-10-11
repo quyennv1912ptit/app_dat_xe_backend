@@ -1,0 +1,173 @@
+package com.nhom15.app_dat_xe.matching.service
+
+import org.springframework.data.redis.core.script.DefaultRedisScript
+
+object DispatchScripts {
+
+    /**
+     * KEYS[1] = ride:{id}:state        (HASH)
+     * KEYS[2] = ride:{id}:candidates   (LIST)
+     * KEYS[3] = ride:{id}:rejected     (SET)
+     * KEYS[4] = dispatch:timeouts      (ZSET)
+     * ARGV[1] = rideId
+     * ARGV[2] = deadline (epoch ms): mốc hết hạn lời mời, cùng số với expiresAt gửi cho app tài xế
+     *
+     * Trả về driverId được mời, hoặc nil nếu hết ứng viên / chuyến không còn SEARCHING.
+     */
+    val OFFER_NEXT = DefaultRedisScript<String>(
+        """
+        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING' then return nil end
+
+        while true do
+            local d = redis.call('RPOP', KEYS[2])
+
+            if not d then
+                redis.call('HSET', KEYS[1], 'status', 'NO_DRIVER_FOUND')
+                redis.call('HDEL', KEYS[1], 'currentDriver')
+                return nil
+            end
+
+            local rejected = redis.call('SISMEMBER', KEYS[3], d)
+            local alive    = redis.call('EXISTS', 'driver:alive:' .. d)
+            local status   = redis.call('GET', 'driver:' .. d .. ':status')
+            local locked   = redis.call('EXISTS', 'driver:' .. d .. ':lock')
+            local busy     = redis.call('EXISTS', 'driver:' .. d .. ':current_ride')
+
+            if rejected == 0 and alive == 1 and status == 'ONLINE' and locked == 0 and busy == 0 then
+                redis.call('SET', 'driver:' .. d .. ':lock', ARGV[1], 'EX', 20)
+                redis.call('SET', 'driver:' .. d .. ':status', 'OFFERED')
+                redis.call('HSET', KEYS[1], 'currentDriver', d)
+                redis.call('ZADD', KEYS[4], ARGV[2], ARGV[1] .. ':' .. d)
+                redis.call('HINCRBY', 'driver:' .. d .. ':stats', 'offered', 1)
+                return d
+            end
+        end
+        """.trimIndent(),
+        String::class.java
+    )
+
+    /**
+     * KEYS[1] = ride:{id}:state        (HASH)
+     * KEYS[2] = dispatch:timeouts      (ZSET)
+     * KEYS[3] = ride:{id}:candidates   (LIST)
+     * ARGV[1] = driverId
+     * ARGV[2] = rideId
+     * ARGV[3] = now (epoch ms)
+     *
+     * Trả 1 nếu nhận thành công, 0 nếu hết hạn / không còn là tài xế được mời.
+     */
+    val ACCEPT = DefaultRedisScript<Long>(
+        """
+        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING'
+           or redis.call('HGET', KEYS[1], 'currentDriver') ~= ARGV[1] then
+            return 0
+        end
+
+        redis.call('HSET', KEYS[1], 'status', 'DRIVER_ASSIGNED', 'driverId', ARGV[1], 'acceptedAt', ARGV[3])
+        redis.call('HDEL', KEYS[1], 'currentDriver')
+        redis.call('DEL', KEYS[3])
+
+        redis.call('SET', 'driver:' .. ARGV[1] .. ':status', 'ON_TRIP')
+        redis.call('SET', 'driver:' .. ARGV[1] .. ':current_ride', ARGV[2])
+        redis.call('DEL', 'driver:' .. ARGV[1] .. ':lock')
+
+        redis.call('ZREM', KEYS[2], ARGV[2] .. ':' .. ARGV[1])
+        redis.call('HINCRBY', 'driver:' .. ARGV[1] .. ':stats', 'accepted', 1)
+
+        redis.call('XADD', 'ride:' .. ARGV[2] .. ':events', '*',
+            'event', 'DRIVER_ASSIGNED', 'driverId', ARGV[1], 'timestamp', ARGV[3])
+
+        return 1
+        """.trimIndent(),
+        Long::class.java
+    )
+
+    /**
+     * Từ chối hoặc hết hạn: giải phóng tài xế đang được mời. Dùng chung cho cả hai (khác nhau ở ARGV[3]).
+     *
+     * KEYS[1] = ride:{id}:state        (HASH)
+     * KEYS[2] = dispatch:timeouts      (ZSET)
+     * KEYS[3] = ride:{id}:rejected     (SET)
+     * KEYS[4] = available_drivers      (GEO)
+     * ARGV[1] = driverId
+     * ARGV[2] = rideId
+     * ARGV[3] = tên bộ đếm trong driver:{id}:stats: "rejected" hoặc "timeout"
+     *
+     * Trả 1 nếu đúng là lời mời hiện tại (được mời người kế), 0 nếu lời mời cũ hoặc đã nhận rồi.
+     */
+    val RELEASE = DefaultRedisScript<Long>(
+        """
+        redis.call('ZREM', KEYS[2], ARGV[2] .. ':' .. ARGV[1])
+
+        if redis.call('HGET', KEYS[1], 'currentDriver') ~= ARGV[1] then
+            return 0
+        end
+
+        redis.call('HDEL', KEYS[1], 'currentDriver')
+        redis.call('SADD', KEYS[3], ARGV[1])
+        redis.call('DEL', 'driver:' .. ARGV[1] .. ':lock')
+        redis.call('HINCRBY', 'driver:' .. ARGV[1] .. ':stats', ARGV[3], 1)
+
+        if redis.call('EXISTS', 'driver:' .. ARGV[1] .. ':alive') == 1 then
+            redis.call('SET', 'driver:' .. ARGV[1] .. ':status', 'ONLINE')
+            local lat = redis.call('HGET', 'driver:' .. ARGV[1] .. ':location', 'lat')
+            local lng = redis.call('HGET', 'driver:' .. ARGV[1] .. ':location', 'lng')
+            if lat and lng then
+                redis.call('GEOADD', KEYS[4], lng, lat, ARGV[1])
+            end
+        else
+            redis.call('SET', 'driver:' .. ARGV[1] .. ':status', 'OFFLINE')
+        end
+
+        return 1
+        """.trimIndent(),
+        Long::class.java
+    )
+
+    /**
+     * Khách huỷ khi chuyến còn SEARCHING. Nếu đang có lời mời treo thì thu hồi luôn.
+     *
+     * KEYS[1] = ride:{id}:state        (HASH)
+     * KEYS[2] = dispatch:timeouts      (ZSET)
+     * KEYS[3] = ride:{id}:candidates   (LIST)
+     * KEYS[4] = available_drivers      (GEO)
+     * ARGV[1] = rideId
+     *
+     * Trả: nil nếu chuyến không còn SEARCHING (không huỷ được bằng script này),
+     *      "" nếu đã huỷ và không có tài xế đang bị mời,
+     *      driverId nếu đã huỷ và tài xế đó vừa bị thu hồi lời mời (cần gửi OFFER_CANCELLED).
+     */
+    val CANCEL_SEARCH = DefaultRedisScript<String>(
+        """
+        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING' then
+            return false
+        end
+
+        redis.call('HSET', KEYS[1], 'status', 'CANCELLED')
+        redis.call('DEL', KEYS[3])
+
+        local d = redis.call('HGET', KEYS[1], 'currentDriver')
+        if not d then
+            return ''
+        end
+
+        redis.call('HDEL', KEYS[1], 'currentDriver')
+        redis.call('ZREM', KEYS[2], ARGV[1] .. ':' .. d)
+        redis.call('DEL', 'driver:' .. d .. ':lock')
+
+        if redis.call('EXISTS', 'driver:' .. d .. ':alive') == 1 then
+            redis.call('SET', 'driver:' .. d .. ':status', 'ONLINE')
+            local lat = redis.call('HGET', 'driver:' .. d .. ':location', 'lat')
+            local lng = redis.call('HGET', 'driver:' .. d .. ':location', 'lng')
+            if lat and lng then
+                redis.call('GEOADD', KEYS[4], lng, lat, d)
+            end
+        else
+            redis.call('SET', 'driver:' .. d .. ':status', 'OFFLINE')
+        end
+
+        return d
+        """.trimIndent(),
+        String::class.java
+    )
+}
