@@ -65,7 +65,7 @@ class FirebaseAuthFilter(
         }
 
         val authentication = UsernamePasswordAuthenticationToken(
-            AuthUser(account.id, account.role),
+            AuthUser(account.id, account.role, account.firebaseUid),
             null,
             listOf(SimpleGrantedAuthority("ROLE_${account.role.name}"))
         )

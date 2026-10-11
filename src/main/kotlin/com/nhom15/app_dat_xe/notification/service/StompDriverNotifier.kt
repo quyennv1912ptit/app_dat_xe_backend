@@ -12,6 +12,10 @@ class StompDriverNotifier (
     fun <T: Any> sendToDriver(driverId: Long, type: PayloadType, payload: T) {
         messaging.convertAndSendToUser(driverId.toString(), "/queue/offers", WsEnvelope(type, payload))
     }
+    
+    fun <T: Any> sendToUser(userId: Long, type: PayloadType, payload: T) {
+        messaging.convertAndSendToUser(userId.toString(), "/queue/rides", WsEnvelope(type, payload))
+    }
 
     fun sendOfferExpired(driverId: Long, rideId: Long) {
         sendToDriver(driverId, PayloadType.OFFER_EXPIRED, mapOf("rideId" to rideId))

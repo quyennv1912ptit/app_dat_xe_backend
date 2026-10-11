@@ -20,6 +20,8 @@ repositories {
 }
 
 dependencies {
+	implementation("com.google.firebase:firebase-admin:9.2.0")
+
 	implementation("com.cloudinary:cloudinary-http44:1.36.0")
 
 	implementation("com.fasterxml.jackson.core:jackson-databind")
