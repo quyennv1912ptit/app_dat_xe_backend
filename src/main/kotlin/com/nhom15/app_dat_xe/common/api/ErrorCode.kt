@@ -28,6 +28,8 @@ enum class ErrorCode(val httpStatus: HttpStatus, val defaultMessage: String) {
     ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "Tài khoản đã bị khóa"),
     DRIVER_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Tài xế chưa được duyệt"),
     VEHICLE_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy xe"),
+    ACCOUNT_ALREADY_EXISTS(HttpStatus.CONFLICT, "Tài khoản đã được đăng ký"),
+    PHONE_MISMATCH(HttpStatus.BAD_REQUEST, "Số điện thoại không khớp với xác thực Firebase"),
 
     // ---- Booking ----
     BOOKING_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy chuyến đi"),
@@ -36,7 +38,7 @@ enum class ErrorCode(val httpStatus: HttpStatus, val defaultMessage: String) {
     BOOKING_CANNOT_CANCEL(HttpStatus.CONFLICT, "Không thể hủy chuyến ở trạng thái hiện tại"),
     HANDOVER_REPORT_REQUIRED(HttpStatus.BAD_REQUEST, "Cần hoàn tất biên bản bàn giao xe"),
     PRICING_RULE_NOT_FOUND(HttpStatus.NOT_FOUND, "Chưa có bảng giá áp dụng"),
-    ROUTE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Không thể tính quãng đường di chuyển"),
+    ROUTE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Không thể lấy lộ trình chuyến đi"),
 
     // ---- Matching ----
     OFFER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy lời mời nhận chuyến"),

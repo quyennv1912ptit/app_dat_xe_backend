@@ -29,6 +29,11 @@ object CodeGenerator {
      * Cột code trong DB nên để unique và thử lại nếu trùng.
      */
     fun randomBookingCode(date: LocalDate = LocalDate.now(VN_ZONE)): String {
+        return randomRideCode(date)
+    }
+
+    /** Giữ định dạng mã BK để tương thích dữ liệu/API cũ. */
+    fun randomRideCode(date: LocalDate = LocalDate.now(VN_ZONE)): String {
         val suffix = (1..4).map { ALPHABET[random.nextInt(ALPHABET.length)] }.joinToString("")
         return "BK${date.format(DATE_FORMAT)}-$suffix"
     }

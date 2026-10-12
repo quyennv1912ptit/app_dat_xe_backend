@@ -1,0 +1,41 @@
+package com.nhom15.app_dat_xe.ride.dto.request
+
+import jakarta.validation.constraints.DecimalMax
+import jakarta.validation.constraints.DecimalMin
+import jakarta.validation.constraints.Future
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.Size
+import java.time.Instant
+
+data class EstimateRideRequest(
+    @field:Positive
+    val vehicleId: Long,
+
+    @field:NotBlank
+    @field:Size(max = 500)
+    val pickupAddress: String,
+
+    @field:DecimalMin("-90.0")
+    @field:DecimalMax("90.0")
+    val pickupLat: Double,
+
+    @field:DecimalMin("-180.0")
+    @field:DecimalMax("180.0")
+    val pickupLng: Double,
+
+    @field:NotBlank
+    @field:Size(max = 500)
+    val dropoffAddress: String,
+
+    @field:DecimalMin("-90.0")
+    @field:DecimalMax("90.0")
+    val dropoffLat: Double,
+
+    @field:DecimalMin("-180.0")
+    @field:DecimalMax("180.0")
+    val dropoffLng: Double,
+
+    @field:Future
+    val scheduledAt: Instant? = null,
+)
