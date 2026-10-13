@@ -1,15 +1,18 @@
 package com.nhom15.app_dat_xe.matching.service
 
-import com.nhom15.app_dat_xe.common.event.EventPublisher
+import com.nhom15.app_dat_xe.common.enums.RideStatus
+import com.nhom15.app_dat_xe.common.port.RideAssignmentPort
 import com.nhom15.app_dat_xe.common.redis.RedisKeys
-import com.nhom15.app_dat_xe.ride.event.RideDriverAssigned
+import com.nhom15.app_dat_xe.common.redis.RedisTtl
+import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 
 @Service
 class RideAcceptanceService(
     private val redisTemplate: StringRedisTemplate,
-    private val eventPublisher: EventPublisher,
+    private val rideAssignmentPort: RideAssignmentPort,
+    private val rideRepository: RideRepository,
     private val dispatchService: RideDispatchService,
     private val releaseService: OfferReleaseService
 ) {
@@ -31,20 +34,54 @@ class RideAcceptanceService(
 
         if (!accepted) return false
 
-        val customerId = redisTemplate.opsForHash<String, String>()
-            .get(RedisKeys.rideState(id), "customerId")
-            ?.toLongOrNull()
-            ?: error("Thiếu customerId trong state của chuyến $rideId")
+        val assignment = try {
+            rideAssignmentPort.assignDriver(rideId, driverId)
+        } catch (exception: Exception) {
+            // A listener can fail after the DB commit. Treat that case as success if DB confirms it.
+            val currentRide = rideRepository.findById(rideId).orElseThrow { exception }
+            if (currentRide.status == RideStatus.DRIVER_ASSIGNED && currentRide.driverId == driverId) {
+                redisTemplate.delete(RedisKeys.rideCandidates(id))
+                return true
+            }
+            rollbackRedisAcceptance(id, rideId, driverId, currentRide.status)
+            throw exception
+        }
 
-        eventPublisher.publish(
-            RideDriverAssigned(
-                rideId = rideId,
-                customerId = customerId,
-                driverId = driverId
-            )
-        )
+        if (assignment == null) {
+            val currentRide = rideRepository.findById(rideId).orElse(null)
+            rollbackRedisAcceptance(id, rideId, driverId, currentRide?.status)
+            return false
+        }
+
+        redisTemplate.delete(RedisKeys.rideCandidates(id))
 
         return true
+    }
+
+    private fun rollbackRedisAcceptance(
+        id: String,
+        rideId: Long,
+        driverId: Long,
+        databaseStatus: RideStatus?,
+    ) {
+        val status = databaseStatus?.name ?: "MISSING"
+        redisTemplate.execute(
+            DispatchScripts.ROLLBACK_ACCEPT,
+            listOf(
+                RedisKeys.rideState(id),
+                RedisKeys.DISPATCH_TIMEOUTS,
+                RedisKeys.rideRejected(id),
+                RedisKeys.rideCandidates(id),
+                RedisKeys.GEO_KEY,
+            ),
+            driverId.toString(),
+            id,
+            status,
+            RedisTtl.RIDE_STATE.seconds.toString(),
+        )
+        if (databaseStatus == RideStatus.SEARCHING) {
+            dispatchService.sendOfferToNextDriver(rideId)
+        }
     }
 
     fun reject(rideId: Long, driverId: Long) {

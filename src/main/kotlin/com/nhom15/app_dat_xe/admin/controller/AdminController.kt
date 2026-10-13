@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/admin")
 class AdminController {
-    @PostMapping("/bookings/{id}/assign")
+    @PostMapping("/rides/{id}/assign")
     fun AdminAssignDriver(@PathVariable id: String, @RequestBody data: String) {
 
     }

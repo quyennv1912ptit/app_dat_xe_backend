@@ -1,6 +1,6 @@
 package  com.nhom15.app_dat_xe.common.enums
 
-/** Trạng thái thanh toán của một booking. */
+/** Trạng thái thanh toán của một ride. */
 enum class PaymentStatus {
     PENDING,   // chờ thanh toán
     PAID,      // đã thanh toán

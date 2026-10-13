@@ -1,13 +1,13 @@
 package com.nhom15.app_dat_xe.notification.service
 
-import com.nhom15.app_dat_xe.account.repository.DriversRepository
+import com.nhom15.app_dat_xe.account.repository.DriverRepository
 import com.nhom15.app_dat_xe.common.enums.ActorRole
 import com.nhom15.app_dat_xe.common.enums.RideStatus
 import com.nhom15.app_dat_xe.notification.api.NotificationPort
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.notification.dto.*
 import com.nhom15.app_dat_xe.ride.event.RideStatusChanged
-import com.nhom15.app_dat_xe.ride.repository.RidesRepository
+import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -17,8 +17,8 @@ import org.springframework.transaction.event.TransactionalEventListener
 @Service
 class RideNotificationListener(
     private val notificationPort: NotificationPort,
-    private val driversRepository: DriversRepository,
-    private val ridesRepository: RidesRepository
+    private val driverRepository: DriverRepository,
+    private val rideRepository: RideRepository
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -43,7 +43,7 @@ class RideNotificationListener(
 
     private fun notifyDriverAssigned(event: RideStatusChanged) {
         val driverId = event.driverId ?: return
-        val driver = driversRepository.findByIdOrNull(driverId) ?: run {
+        val driver = driverRepository.findByIdOrNull(driverId) ?: run {
             log.warn("Không tìm thấy tài xế {} khi báo chuyến {}", driverId, event.rideId)
             return
         }
@@ -54,7 +54,7 @@ class RideNotificationListener(
                 id = driverId,
                 name = driver.fullName,
                 phone = driver.phoneNumber,
-                rating = driver.averageRating,
+                rating = driver.averageRating ?: 5.0,
                 avatarUrl = driver.avatarUrl
             )
         )
@@ -72,7 +72,7 @@ class RideNotificationListener(
     }
 
     private fun notifyRideCompleted(event: RideStatusChanged) {
-        val ride = ridesRepository.findByIdOrNull(event.rideId) ?: run {
+        val ride = rideRepository.findByIdOrNull(event.rideId) ?: run {
             log.warn("Không tìm thấy chuyến với id {}", event.rideId)
             return
         }
