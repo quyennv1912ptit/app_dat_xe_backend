@@ -6,13 +6,11 @@ import com.nhom15.app_dat_xe.common.enums.Role
 import com.nhom15.app_dat_xe.common.enums.Transmission
 import com.nhom15.app_dat_xe.common.event.EventPublisher
 import com.nhom15.app_dat_xe.common.exception.BadRequestException
-import com.nhom15.app_dat_xe.common.exception.ConflictException
 import com.nhom15.app_dat_xe.common.exception.ForbiddenException
 import com.nhom15.app_dat_xe.common.exception.NotFoundException
 import com.nhom15.app_dat_xe.common.port.CustomerVehicleQueryPort
 import com.nhom15.app_dat_xe.common.port.CustomerVehicleSnapshot
 import com.nhom15.app_dat_xe.common.security.AuthUser
-import com.nhom15.app_dat_xe.common.util.CodeGenerator
 import com.nhom15.app_dat_xe.ride.dto.internal.RideQuote
 import com.nhom15.app_dat_xe.ride.dto.internal.RideQuoteInput
 import com.nhom15.app_dat_xe.ride.dto.request.CancelRideRequest
@@ -56,7 +54,6 @@ class RideService(
 
         val pendingRide = rideRepository.saveAndFlush(
             request.toRide(
-                code = generateUniqueCode(),
                 customerId = actor.userId,
                 vehicle = vehicle,
                 quote = quote,
@@ -117,12 +114,10 @@ class RideService(
             )
 
     private fun CreateRideRequest.toRide(
-        code: String,
         customerId: Long,
         vehicle: CustomerVehicleSnapshot,
         quote: RideQuote,
     ) = Ride(
-        code = code,
         customerId = customerId,
         vehicleId = vehicle.id,
         vehicleType = vehicle.vehicleType,
@@ -183,17 +178,5 @@ class RideService(
                 }
             }
         }
-    }
-
-    private fun generateUniqueCode(): String {
-        repeat(MAX_CODE_ATTEMPTS) {
-            val code = CodeGenerator.randomRideCode()
-            if (rideRepository.findByCode(code) == null) return code
-        }
-        throw ConflictException(message = "Không thể tạo mã ride duy nhất, vui lòng thử lại")
-    }
-
-    private companion object {
-        const val MAX_CODE_ATTEMPTS = 5
     }
 }

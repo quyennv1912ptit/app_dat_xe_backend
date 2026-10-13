@@ -5,7 +5,6 @@ import java.time.Instant
 
 data class RideStatusResponse(
     val rideId: Long,
-    val code: String,
     val previousStatus: RideStatus,
     val currentStatus: RideStatus,
     val changedAt: Instant,

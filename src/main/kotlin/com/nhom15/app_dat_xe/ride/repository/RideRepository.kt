@@ -12,8 +12,6 @@ import org.springframework.data.repository.query.Param
 
 interface RideRepository : JpaRepository<Ride, Long> {
 
-    fun findByCode(code: String): Ride?
-
     fun findByIdAndCustomerId(id: Long, customerId: Long): Ride?
 
     fun findByIdAndDriverId(id: Long, driverId: Long): Ride?

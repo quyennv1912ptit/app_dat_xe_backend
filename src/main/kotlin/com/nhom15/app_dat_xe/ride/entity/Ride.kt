@@ -23,9 +23,6 @@ import java.time.Instant
 @Entity
 @Table(name = "rides")
 class Ride(
-    @Column(nullable = false, unique = true, length = 32)
-    var code: String,
-
     @Column(name = "customer_id", nullable = false)
     var customerId: Long,
 

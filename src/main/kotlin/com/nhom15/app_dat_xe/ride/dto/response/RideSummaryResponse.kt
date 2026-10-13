@@ -6,7 +6,6 @@ import java.time.Instant
 
 data class RideSummaryResponse(
     val id: Long,
-    val code: String,
     val pickupAddress: String,
     val dropoffAddress: String,
     val type: RideType,

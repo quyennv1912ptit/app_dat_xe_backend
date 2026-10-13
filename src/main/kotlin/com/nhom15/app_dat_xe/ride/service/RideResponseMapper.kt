@@ -27,17 +27,17 @@ internal object RideResponseMapper {
     )
 
     fun create(ride: Ride) = CreateRideResponse(
-        id = ride.id, code = ride.code, status = ride.status,
+        id = ride.id, status = ride.status,
         estimatedFare = ride.estimatedFare, createdAt = ride.createdAt,
     )
 
     fun status(ride: Ride, previousStatus: RideStatus) = RideStatusResponse(
-        rideId = ride.id, code = ride.code, previousStatus = previousStatus,
+        rideId = ride.id, previousStatus = previousStatus,
         currentStatus = ride.status, changedAt = ride.updatedAt,
     )
 
     fun summary(ride: Ride) = RideSummaryResponse(
-        id = ride.id, code = ride.code, pickupAddress = ride.pickupAddress,
+        id = ride.id, pickupAddress = ride.pickupAddress,
         dropoffAddress = ride.dropoffAddress, type = ride.type, status = ride.status,
         estimatedFare = ride.estimatedFare, finalFare = ride.finalFare,
         scheduledAt = ride.scheduledAt, createdAt = ride.createdAt,
@@ -53,7 +53,7 @@ internal object RideResponseMapper {
         statusHistory: List<RideStatusHistoryResponse>,
         handoverReports: List<HandoverReportResponse>,
     ) = RideDetailResponse(
-        id = ride.id, code = ride.code, customerId = ride.customerId,
+        id = ride.id, customerId = ride.customerId,
         driverId = ride.driverId, vehicleId = ride.vehicleId, type = ride.type,
         scheduledAt = ride.scheduledAt, pickupAddress = ride.pickupAddress,
         pickup = GeoPointResponse(ride.pickupPoint.lat, ride.pickupPoint.lng),

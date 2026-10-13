@@ -7,7 +7,6 @@ import java.time.Instant
 
 data class RideDetailResponse(
     val id: Long,
-    val code: String,
     val customerId: Long,
     val driverId: Long?,
     val vehicleId: Long,
