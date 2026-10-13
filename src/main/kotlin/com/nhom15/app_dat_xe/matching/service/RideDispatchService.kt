@@ -1,16 +1,20 @@
 package com.nhom15.app_dat_xe.matching.service
 
 import com.nhom15.app_dat_xe.common.enums.RideStatus
+import com.nhom15.app_dat_xe.common.redis.RedisKeys
 import com.nhom15.app_dat_xe.common.redis.RedisKeys.rideCandidates
+import com.nhom15.app_dat_xe.common.redis.RedisKeys.rideRejected
 import com.nhom15.app_dat_xe.common.redis.RedisKeys.rideState
-import com.nhom15.app_dat_xe.notification.service.NotificationService
-import com.nhom15.app_dat_xe.ride.event.RideCompleted
+import com.nhom15.app_dat_xe.common.redis.RedisTtl
+import com.nhom15.app_dat_xe.notification.api.DeliveryResult
+import com.nhom15.app_dat_xe.notification.api.NotificationPort
+import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.ride.event.RideNoDriverFound
 import com.nhom15.app_dat_xe.ride.event.RideRequested
 import com.nhom15.app_dat_xe.tracking.dto.NearbyDriver
 import com.nhom15.app_dat_xe.tracking.service.LocationService
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.context.event.EventListener
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.event.TransactionPhase
@@ -19,13 +23,16 @@ import java.time.Duration
 
 @Service
 class RideDispatchService(
-    val locationService: LocationService,
-    val selectionService: DriverSelectionService,
-    val redisTemplate: StringRedisTemplate,
-    val notificationService: NotificationService,
-    val publisher: ApplicationEventPublisher
+    private val locationService: LocationService,
+    private val selectionService: DriverSelectionService,
+    private val redisTemplate: StringRedisTemplate,
+    private val publisher: ApplicationEventPublisher,
+    private val rideOfferBuilder: RideOfferBuilder,
+    private val notificationPort: NotificationPort,
+    private val releaseService: OfferReleaseService
 ) {
-    // Chạy sau khi chuyến đã commit vào DB; fallbackExecution để vẫn chạy nếu nơi publish không có transaction
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun handleRideRequested(event: RideRequested) {
         val id = event.rideId.toString()
@@ -40,7 +47,6 @@ class RideDispatchService(
             return
         }
 
-        // State trước, hàng đợi sau, rồi mới mời
         val statusKey = rideState(id)
         redisTemplate.opsForHash<String, String>().putAll(
             statusKey,
@@ -50,21 +56,45 @@ class RideDispatchService(
                 "transmission" to event.transmission.name
             )
         )
-        redisTemplate.expire(statusKey, Duration.ofHours(24))
+        redisTemplate.expire(statusKey, RedisTtl.RIDE_STATE)
 
-        // Lua lấy bằng RPOP (cuối danh sách). leftPushAll đẩy từng phần tử vào đầu,
-        // nên phần tử đầu tiên (xếp hạng tốt nhất) kết thúc ở cuối và được lấy ra trước.
         val queueKey = rideCandidates(id)
         redisTemplate.opsForList().leftPushAll(queueKey, rankedDriverIds)
-        redisTemplate.expire(queueKey, Duration.ofHours(1))
+        redisTemplate.expire(queueKey, RedisTtl.RIDE_CANDIDATES)
 
-        notificationService.sendOfferToNextDriver(event.rideId)
+        sendOfferToNextDriver(event.rideId)
     }
 
-    @EventListener
-    fun handleRideCompleted(event: RideCompleted) {
-        val statusKey = rideState(event.rideId.toString())
-        redisTemplate.opsForHash<String, String>().put(statusKey, "status", "COMPLETED")
-        redisTemplate.expire(statusKey, Duration.ofHours(1))
+    fun sendOfferToNextDriver(rideId: Long) {
+        val id = rideId.toString()
+        val keys = listOf(rideState(id), rideCandidates(id), rideRejected(id), RedisKeys.DISPATCH_TIMEOUTS)
+
+        while (true) {
+            val deadline = System.currentTimeMillis() + RedisTtl.OFFER_TIMEOUT.toMillis()
+
+            val driverIdStr = redisTemplate.execute(
+                DispatchScripts.OFFER_NEXT, keys, id, deadline.toString(), RedisTtl.DRIVER_LOCK.seconds.toString()
+            ) ?: run {
+                val status = redisTemplate.opsForHash<String, String>().get(rideState(id), "status")
+                if (status == "NO_DRIVER_FOUND") publisher.publishEvent(RideNoDriverFound(rideId))
+                return
+            }
+            val driverId = driverIdStr.toLong()
+
+            val delivered = try {
+                val payload = rideOfferBuilder.build(rideId, driverId, deadline)
+                notificationPort.send(Recipient.Driver(driverId), payload) != DeliveryResult.UNREACHABLE
+            } catch (e: Exception) {
+                log.warn("Không dựng/gửi được offer chuyến {} cho tài xế {}: {}", rideId, driverId, e.message)
+                false
+            }
+
+            if (delivered) {
+                redisTemplate.opsForGeo().remove(RedisKeys.GEO_KEY, driverIdStr)
+                return
+            }
+
+            if (!releaseService.release(rideId, driverId, "unreachable")) return
+        }
     }
 }

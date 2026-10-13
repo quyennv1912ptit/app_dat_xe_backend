@@ -11,6 +11,7 @@ object DispatchScripts {
      * KEYS[4] = dispatch:timeouts      (ZSET)
      * ARGV[1] = rideId
      * ARGV[2] = deadline (epoch ms): mốc hết hạn lời mời, cùng số với expiresAt gửi cho app tài xế
+     * ARGV[3] = thời gian sống của khoá tài xế (giây), lấy từ RedisTtl.DRIVER_LOCK
      *
      * Trả về driverId được mời, hoặc nil nếu hết ứng viên / chuyến không còn SEARCHING.
      */
@@ -34,7 +35,7 @@ object DispatchScripts {
             local busy     = redis.call('EXISTS', 'driver:' .. d .. ':current_ride')
 
             if rejected == 0 and alive == 1 and status == 'ONLINE' and locked == 0 and busy == 0 then
-                redis.call('SET', 'driver:' .. d .. ':lock', ARGV[1], 'EX', 20)
+                redis.call('SET', 'driver:' .. d .. ':lock', ARGV[1], 'EX', ARGV[3])
                 redis.call('SET', 'driver:' .. d .. ':status', 'OFFERED')
                 redis.call('HSET', KEYS[1], 'currentDriver', d)
                 redis.call('ZADD', KEYS[4], ARGV[2], ARGV[1] .. ':' .. d)
@@ -83,7 +84,8 @@ object DispatchScripts {
     )
 
     /**
-     * Từ chối hoặc hết hạn: giải phóng tài xế đang được mời. Dùng chung cho cả hai (khác nhau ở ARGV[3]).
+     * Từ chối, hết hạn hoặc không gửi được: giải phóng tài xế đang được mời.
+     * Script tự ZREM mục timeout nên người gọi không cần xoá trước.
      *
      * KEYS[1] = ride:{id}:state        (HASH)
      * KEYS[2] = dispatch:timeouts      (ZSET)
@@ -91,7 +93,8 @@ object DispatchScripts {
      * KEYS[4] = available_drivers      (GEO)
      * ARGV[1] = driverId
      * ARGV[2] = rideId
-     * ARGV[3] = tên bộ đếm trong driver:{id}:stats: "rejected" hoặc "timeout"
+     * ARGV[3] = tên bộ đếm trong driver:{id}:stats: "rejected", "timeout" hoặc "unreachable"
+     * ARGV[4] = thời gian sống của tập rejected (giây), lấy từ RedisTtl.RIDE_STATE
      *
      * Trả 1 nếu đúng là lời mời hiện tại (được mời người kế), 0 nếu lời mời cũ hoặc đã nhận rồi.
      */
@@ -105,6 +108,7 @@ object DispatchScripts {
 
         redis.call('HDEL', KEYS[1], 'currentDriver')
         redis.call('SADD', KEYS[3], ARGV[1])
+        redis.call('EXPIRE', KEYS[3], ARGV[4])
         redis.call('DEL', 'driver:' .. ARGV[1] .. ':lock')
         redis.call('HINCRBY', 'driver:' .. ARGV[1] .. ':stats', ARGV[3], 1)
 
