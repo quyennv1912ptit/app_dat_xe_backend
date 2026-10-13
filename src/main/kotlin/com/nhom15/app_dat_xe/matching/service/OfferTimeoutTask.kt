@@ -1,7 +1,10 @@
 package com.nhom15.app_dat_xe.matching.service
 
 import com.nhom15.app_dat_xe.common.redis.RedisKeys
-import com.nhom15.app_dat_xe.notification.service.NotificationService
+import com.nhom15.app_dat_xe.notification.api.NotificationPort
+import com.nhom15.app_dat_xe.notification.api.Recipient
+import com.nhom15.app_dat_xe.notification.dto.OfferClosedPayload
+import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -9,22 +12,34 @@ import org.springframework.stereotype.Component
 @Component
 class OfferTimeoutTask(
     private val redisTemplate: StringRedisTemplate,
-    private val acceptanceService: RideAcceptanceService,
-    private val notificationService: NotificationService
+    private val releaseService: OfferReleaseService,
+    private val dispatchService: RideDispatchService,
+    private val notificationPort: NotificationPort
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Scheduled(fixedDelay = 1000)
     fun handleExpiredOffers() {
         val now = System.currentTimeMillis().toDouble()
         val due = redisTemplate.opsForZSet().rangeByScore(RedisKeys.DISPATCH_TIMEOUTS, 0.0, now) ?: return
 
         due.forEach { member ->
-            // remove trả 1 = instance này giành được; nhiều instance cùng quét cũng không xử lý trùng
-            if (redisTemplate.opsForZSet().remove(RedisKeys.DISPATCH_TIMEOUTS, member) == 1L) {
-                val (rideId, driverId) = member.split(":").map { it.toLong() }
-                if (acceptanceService.releaseOffer(rideId, driverId, "timeout")) {
-                    notificationService.sendOfferExpired(driverId, rideId)
-                    notificationService.sendOfferToNextDriver(rideId)
+            try {
+                val parts = member.split(":")
+                val rideId = parts.getOrNull(0)?.toLongOrNull()
+                val driverId = parts.getOrNull(1)?.toLongOrNull()
+                if (rideId == null || driverId == null) {
+                    log.warn("Mục timeout không hợp lệ, bỏ qua: {}", member)
+                    redisTemplate.opsForZSet().remove(RedisKeys.DISPATCH_TIMEOUTS, member)
+                    return@forEach
                 }
+
+                if (releaseService.release(rideId, driverId, "timeout")) {
+                    notificationPort.send(Recipient.Driver(driverId), OfferClosedPayload.expired(rideId))
+                    dispatchService.sendOfferToNextDriver(rideId)
+                }
+            } catch (e: Exception) {
+                log.error("Lỗi xử lý offer hết hạn {}", member, e)
             }
         }
     }
