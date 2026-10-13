@@ -7,21 +7,27 @@ import com.nhom15.app_dat_xe.common.enums.PaymentMethod
 import com.nhom15.app_dat_xe.common.enums.Transmission
 import com.nhom15.app_dat_xe.common.enums.VehicleType
 import com.nhom15.app_dat_xe.common.enums.RideStatus
-import jakarta.persistence.AttributeOverride
-import jakarta.persistence.AttributeOverrides
+import com.nhom15.app_dat_xe.common.api.ErrorCode
+import com.nhom15.app_dat_xe.common.exception.ConflictException
 import jakarta.persistence.Column
-import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import jakarta.persistence.Index
 import jakarta.persistence.Transient
 import jakarta.persistence.Version
 import java.math.BigDecimal
 import java.time.Instant
 
 @Entity
-@Table(name = "rides")
+@Table(name = "rides", indexes = [
+    Index(name = "idx_rides_customer_created", columnList = "customer_id,created_at"),
+    Index(name = "idx_rides_customer_status", columnList = "customer_id,status"),
+    Index(name = "idx_rides_driver_status", columnList = "driver_id,status"),
+    Index(name = "idx_rides_status_scheduled", columnList = "status,scheduled_at"),
+    Index(name = "idx_rides_vehicle", columnList = "vehicle_id"),
+])
 class Ride(
     @Column(name = "customer_id", nullable = false)
     var customerId: Long,
@@ -39,29 +45,29 @@ class Ride(
     @Column(name = "scheduled_at")
     var scheduledAt: Instant? = null,
 
-    @Column(name = "pickup_address", nullable = false, columnDefinition = "text")
-    var pickupAddress: String,
+    @Column(name = "pickup_address", length = 255)
+    var pickupAddress: String?,
 
-    pickup: GeoPoint,
+    pickup: GeoPoint?,
 
-    @Column(name = "dropoff_address", nullable = false, columnDefinition = "text")
-    var dropoffAddress: String,
+    @Column(name = "dropoff_address", length = 255)
+    var dropoffAddress: String?,
 
-    dropoff: GeoPoint,
+    dropoff: GeoPoint?,
 
     distanceKm: BigDecimal? = null,
 
-    @Column(name = "estimated_fare", nullable = false)
+    @Column(name = "fare_estimate", nullable = false)
     var estimatedFare: Long,
 
     @Column(name = "final_fare")
     var finalFare: Long? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
+    @Column(nullable = false, length = 30)
     var status: RideStatus = RideStatus.PENDING,
 
-    @Column(name = "cancel_reason", columnDefinition = "text")
+    @Column(name = "cancel_reason", length = 255)
     var cancelReason: String? = null,
 
     @Column(name = "cancelled_by")
@@ -84,34 +90,66 @@ class Ride(
 
     @Column(length = 500)
     var note: String? = null,
+
+    @Column(name = "accepted_at")
+    var acceptedAt: Instant? = null,
+
+    @Column(name = "started_at")
+    var startedAt: Instant? = null,
+
+    @Column(name = "completed_at")
+    var completedAt: Instant? = null,
+
+    @Column(name = "cancelled_at")
+    var cancelledAt: Instant? = null,
+
+    @Column(name = "discount_amount")
+    var discountAmount: Long? = 0L,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancelled_by_role", length = 20)
+    var cancelledByRole: RideActorRole? = null,
 ) : BaseEntity() {
-    @Embedded
-    @AttributeOverrides(
-        AttributeOverride(name = "lat", column = Column(name = "pickup_lat", nullable = false)),
-        AttributeOverride(name = "lng", column = Column(name = "pickup_lng", nullable = false)),
-    )
-    var pickupPoint: GeoPoint = pickup
+    @Column(name = "pickup_lat")
+    var pickupLat: Double? = pickup?.lat
 
-    @Embedded
-    @AttributeOverrides(
-        AttributeOverride(name = "lat", column = Column(name = "dropoff_lat", nullable = false)),
-        AttributeOverride(name = "lng", column = Column(name = "dropoff_lng", nullable = false)),
-    )
-    var dropoffPoint: GeoPoint = dropoff
+    @Column(name = "pickup_lng")
+    var pickupLng: Double? = pickup?.lng
 
-    @Column(name = "distance_km", precision = 10, scale = 3)
-    var distanceKmDecimal: BigDecimal? = distanceKm
+    @Column(name = "dropoff_lat")
+    var dropoffLat: Double? = dropoff?.lat
 
-    // Matching reads Location and Double; storage/API retain the legacy columns and decimal precision.
+    @Column(name = "dropoff_lng")
+    var dropoffLng: Double? = dropoff?.lng
+
+    @Column(name = "distance_km")
+    var distanceKm: Double? = distanceKm?.toDouble()
+
+    // Preserve the existing API/Matching accessors without adding extra database columns.
     @get:Transient
-    val pickup: Location get() = Location(pickupPoint, pickupAddress)
+    var distanceKmDecimal: BigDecimal?
+        get() = distanceKm?.let(BigDecimal::valueOf)
+        set(value) { distanceKm = value?.toDouble() }
+
     @get:Transient
-    val dropoff: Location get() = Location(dropoffPoint, dropoffAddress)
+    val pickupPoint: GeoPoint get() = GeoPoint(pickupLat ?: missingLocation(), pickupLng ?: missingLocation())
+
     @get:Transient
-    val distanceKm: Double? get() = distanceKmDecimal?.toDouble()
+    val dropoffPoint: GeoPoint get() = GeoPoint(dropoffLat ?: missingLocation(), dropoffLng ?: missingLocation())
+
+    @get:Transient
+    val pickup: Location get() = Location(pickupPoint, pickupAddress ?: missingLocation())
+
+    @get:Transient
+    val dropoff: Location get() = Location(dropoffPoint, dropoffAddress ?: missingLocation())
+
     @get:Transient
     val fareEstimate: Long get() = estimatedFare
 
     @Version
+    @Column(nullable = false)
     var version: Long = 0
+
+    private fun missingLocation(): Nothing =
+        throw ConflictException(ErrorCode.INVALID_RIDE_STATE, "Chuyến thiếu thông tin địa điểm")
 }

@@ -2,6 +2,7 @@ package com.nhom15.app_dat_xe.ride.dto.response
 
 import java.time.Instant
 import java.time.LocalTime
+import com.nhom15.app_dat_xe.common.enums.VehicleType
 
 data class PricingRuleResponse(
     val id: Long,
@@ -16,4 +17,5 @@ data class PricingRuleResponse(
     val active: Boolean,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val vehicleType: VehicleType? = null,
 )

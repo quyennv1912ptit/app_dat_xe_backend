@@ -12,6 +12,7 @@ import com.nhom15.app_dat_xe.common.exception.NotFoundException
 import com.nhom15.app_dat_xe.common.port.RideAssignmentResult
 import com.nhom15.app_dat_xe.ride.entity.HandoverPhase
 import com.nhom15.app_dat_xe.ride.entity.Ride
+import com.nhom15.app_dat_xe.ride.entity.RideActorRole
 import com.nhom15.app_dat_xe.ride.entity.RideStatusHistory
 import com.nhom15.app_dat_xe.ride.entity.VehicleHandoverReport
 import com.nhom15.app_dat_xe.ride.event.RideCompleted
@@ -22,6 +23,7 @@ import com.nhom15.app_dat_xe.ride.repository.RideStatusHistoryRepository
 import com.nhom15.app_dat_xe.ride.repository.VehicleHandoverReportRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Service
 class RideStateMachine(
@@ -64,12 +66,17 @@ class RideStateMachine(
 
         if (command.event == RideTransitionEvent.CANCEL) {
             val reason = command.cancelReason?.trim()
-            if (reason.isNullOrEmpty()) {
-                throw BadRequestException(message = "Lý do hủy chuyến không được để trống")
+            if (reason.isNullOrEmpty() || reason.length > 255) {
+                throw BadRequestException(message = "Lý do hủy chuyến phải có nội dung và không vượt quá 255 ký tự")
             }
             ride.cancelReason = reason
             ride.cancelledBy = command.actor.userId
+            ride.cancelledByRole = command.actor.persistedRole
+            ride.cancelledAt = Instant.now()
         }
+
+        if (nextStatus == RideStatus.IN_PROGRESS) ride.startedAt = Instant.now()
+        if (nextStatus == RideStatus.COMPLETED) ride.completedAt = Instant.now()
 
         if (nextStatus == RideStatus.COMPLETED && ride.finalFare == null) {
             ride.finalFare = ride.estimatedFare
@@ -77,7 +84,7 @@ class RideStateMachine(
 
         ride.status = nextStatus
         rideRepository.saveAndFlush(ride)
-        recordHistory(ride, previousStatus, nextStatus, command.actor.userId, command.note)
+        recordHistory(ride, previousStatus, nextStatus, command.actor.userId, command.note, command.actor.persistedRole)
         publishStatusChanged(ride, previousStatus, nextStatus, command.actor.userId)
 
         if (nextStatus == RideStatus.COMPLETED) {
@@ -95,6 +102,7 @@ class RideStateMachine(
             to = RideStatus.PENDING,
             actorId = actorId,
             note = "Khởi tạo ride",
+            actorRole = RideActorRole.USER,
         )
         publishStatusChanged(
             ride = ride,
@@ -128,6 +136,7 @@ class RideStateMachine(
             to = RideStatus.DRIVER_ASSIGNED,
             actorId = driverId,
             note = note,
+            actorRole = RideActorRole.DRIVER,
         )
         publishStatusChanged(
             ride = ride,
@@ -228,6 +237,7 @@ class RideStateMachine(
         to: RideStatus,
         actorId: Long?,
         note: String?,
+        actorRole: RideActorRole?,
     ) {
         historyRepository.save(
             RideStatusHistory(
@@ -236,6 +246,7 @@ class RideStateMachine(
                 toStatus = to,
                 actorId = actorId,
                 note = note,
+                actorRole = actorRole,
             ),
         )
     }

@@ -32,6 +32,7 @@ interface RideRepository : JpaRepository<Ride, Long> {
         value = """
         update rides
         set driver_id = :driverId,
+            accepted_at = CURRENT_TIMESTAMP,
             status = 'DRIVER_ASSIGNED',
             updated_at = CURRENT_TIMESTAMP,
             version = version + 1

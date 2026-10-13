@@ -15,6 +15,7 @@ internal object PricingRuleResponseMapper {
         returnFeeForDriver = rule.returnFeeForDriver,
         minFare = rule.minFare,
         active = rule.active,
+        vehicleType = rule.vehicleType,
         createdAt = rule.createdAt,
         updatedAt = rule.updatedAt,
     )

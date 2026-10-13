@@ -42,6 +42,7 @@ class RideService(
     @Transactional
     fun createRide(actor: AuthUser, request: CreateRideRequest): CreateRideResponse {
         requireCustomer(actor)
+        validateCreateFields(request)
         validateSchedule(request)
 
         val vehicle = findOwnedVehicle(request.vehicleId, actor.userId)
@@ -79,8 +80,8 @@ class RideService(
         if (rideId <= 0) {
             throw BadRequestException(message = "rideId phải lớn hơn 0")
         }
-        if (request.reason.isBlank() || request.reason.length > 500) {
-            throw BadRequestException(message = "Lý do hủy chuyến phải có nội dung và không vượt quá 500 ký tự")
+        if (request.reason.isBlank() || request.reason.length > 255) {
+            throw BadRequestException(message = "Lý do hủy chuyến phải có nội dung và không vượt quá 255 ký tự")
         }
         val reason = request.reason.trim()
         val currentRide = rideRepository.findById(rideId).orElseThrow {
@@ -160,6 +161,17 @@ class RideService(
             ),
         )
         return searchingRide
+    }
+
+    private fun validateCreateFields(request: CreateRideRequest) {
+        if (request.pickupAddress.isBlank() || request.pickupAddress.length > 255 ||
+            request.dropoffAddress.isBlank() || request.dropoffAddress.length > 255
+        ) {
+            throw BadRequestException(message = "Địa chỉ phải có nội dung và không vượt quá 255 ký tự")
+        }
+        if (request.note != null && request.note.length > 500) {
+            throw BadRequestException(message = "Ghi chú không được vượt quá 500 ký tự")
+        }
     }
 
     private fun validateSchedule(request: CreateRideRequest) {

@@ -46,6 +46,7 @@ internal object RideResponseMapper {
     fun history(history: RideStatusHistory) = RideStatusHistoryResponse(
         id = history.id, fromStatus = history.fromStatus, toStatus = history.toStatus,
         actorId = history.actorId, note = history.note, createdAt = history.createdAt,
+        actorRole = history.actorRole,
     )
 
     fun detail(
@@ -56,12 +57,15 @@ internal object RideResponseMapper {
         id = ride.id, customerId = ride.customerId,
         driverId = ride.driverId, vehicleId = ride.vehicleId, type = ride.type,
         scheduledAt = ride.scheduledAt, pickupAddress = ride.pickupAddress,
-        pickup = GeoPointResponse(ride.pickupPoint.lat, ride.pickupPoint.lng),
+        pickup = GeoPointResponse(ride.pickupLat, ride.pickupLng),
         dropoffAddress = ride.dropoffAddress,
-        dropoff = GeoPointResponse(ride.dropoffPoint.lat, ride.dropoffPoint.lng),
+        dropoff = GeoPointResponse(ride.dropoffLat, ride.dropoffLng),
         distanceKm = ride.distanceKmDecimal, estimatedFare = ride.estimatedFare,
         finalFare = ride.finalFare, status = ride.status, cancelReason = ride.cancelReason,
         cancelledBy = ride.cancelledBy, statusHistory = statusHistory,
         handoverReports = handoverReports, createdAt = ride.createdAt, updatedAt = ride.updatedAt,
+        acceptedAt = ride.acceptedAt, startedAt = ride.startedAt,
+        completedAt = ride.completedAt, cancelledAt = ride.cancelledAt,
+        cancelledByRole = ride.cancelledByRole, discountAmount = ride.discountAmount,
     )
 }

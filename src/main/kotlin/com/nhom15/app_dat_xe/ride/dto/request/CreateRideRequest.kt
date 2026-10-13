@@ -20,7 +20,7 @@ data class CreateRideRequest(
     val scheduledAt: Instant? = null,
 
     @field:NotBlank
-    @field:Size(max = 500)
+    @field:Size(max = 255)
     val pickupAddress: String,
 
     @field:DecimalMin("-90.0")
@@ -32,7 +32,7 @@ data class CreateRideRequest(
     val pickupLng: Double,
 
     @field:NotBlank
-    @field:Size(max = 500)
+    @field:Size(max = 255)
     val dropoffAddress: String,
 
     @field:DecimalMin("-90.0")

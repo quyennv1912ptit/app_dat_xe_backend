@@ -5,6 +5,6 @@ import jakarta.validation.constraints.Size
 
 data class CancelRideRequest(
     @field:NotBlank
-    @field:Size(max = 500)
+    @field:Size(max = 255)
     val reason: String,
 )

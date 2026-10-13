@@ -1,9 +1,12 @@
 package com.nhom15.app_dat_xe.ride.entity
 
 import com.nhom15.app_dat_xe.common.entity.BaseEntity
+import com.nhom15.app_dat_xe.common.enums.VehicleType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import jakarta.persistence.Enumerated
+import jakarta.persistence.EnumType
 import java.time.LocalTime
 
 @Entity
@@ -35,4 +38,8 @@ class PricingRule(
 
     @Column(nullable = false)
     var active: Boolean = true,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vehicle_type", length = 30)
+    var vehicleType: VehicleType? = null,
 ) : BaseEntity()

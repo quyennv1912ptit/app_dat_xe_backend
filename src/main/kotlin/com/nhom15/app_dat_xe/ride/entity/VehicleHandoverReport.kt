@@ -6,6 +6,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.ForeignKey
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
@@ -18,7 +19,7 @@ import jakarta.persistence.UniqueConstraint
 )
 class VehicleHandoverReport(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ride_id", nullable = false)
+    @JoinColumn(name = "ride_id", nullable = false, foreignKey = ForeignKey(name = "fk_handover_reports_ride"))
     var ride: Ride,
 
     @Enumerated(EnumType.STRING)

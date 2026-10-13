@@ -39,11 +39,11 @@ class RideEstimateService(
         if (request.vehicleId <= 0) {
             throw BadRequestException(message = "vehicleId phải lớn hơn 0")
         }
-        if (request.pickupAddress.isBlank() || request.pickupAddress.length > 500) {
-            throw BadRequestException(message = "Địa chỉ đón phải có nội dung và không vượt quá 500 ký tự")
+        if (request.pickupAddress.isBlank() || request.pickupAddress.length > 255) {
+            throw BadRequestException(message = "Địa chỉ đón phải có nội dung và không vượt quá 255 ký tự")
         }
-        if (request.dropoffAddress.isBlank() || request.dropoffAddress.length > 500) {
-            throw BadRequestException(message = "Địa chỉ đến phải có nội dung và không vượt quá 500 ký tự")
+        if (request.dropoffAddress.isBlank() || request.dropoffAddress.length > 255) {
+            throw BadRequestException(message = "Địa chỉ đến phải có nội dung và không vượt quá 255 ký tự")
         }
         if (!request.pickupLat.isFinite() || request.pickupLat < -90.0 || request.pickupLat > 90.0) {
             throw BadRequestException(message = "pickupLat phải hữu hạn và từ -90 đến 90")
