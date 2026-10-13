@@ -9,7 +9,7 @@ import com.nhom15.app_dat_xe.notification.dto.CustomerBrief
 import com.nhom15.app_dat_xe.notification.dto.RideOfferPayload
 import com.nhom15.app_dat_xe.notification.dto.VehicleInfo
 import com.nhom15.app_dat_xe.notification.dto.toDto
-import com.nhom15.app_dat_xe.ride.repository.RidesRepository
+import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import com.nhom15.app_dat_xe.tracking.service.MapService
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.repository.findByIdOrNull
@@ -20,13 +20,13 @@ import kotlin.math.roundToLong
 
 @Component
 class RideOfferBuilder(
-    private val ridesRepository: RidesRepository,
+    private val rideRepository: RideRepository,
     private val mapService: MapService,
     private val redisTemplate: StringRedisTemplate,
     private val userRepository: UserRepository
 ) {
     fun build(rideId: Long, driverId: Long, expiresAt: Long): RideOfferPayload {
-        val ride = ridesRepository.findByIdOrNull(rideId)
+        val ride = rideRepository.findByIdOrNull(rideId)
             ?: throw NotFoundException(message = "Không tìm thấy chuyến $rideId")
 
         val customer = userRepository.findByIdOrNull(ride.customerId)

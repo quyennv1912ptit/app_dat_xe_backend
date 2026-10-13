@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
  * Khuôn response chung cho mọi API.
  *
  * Thành công: { "success": true, "data": {...} }
- * Thất bại:   { "success": false, "error": { "code": "BOOKING_NOT_FOUND", "message": "..." } }
+ * Thất bại:   { "success": false, "error": { "code": "RIDE_NOT_FOUND", "message": "..." } }
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ApiResponse<out T>(

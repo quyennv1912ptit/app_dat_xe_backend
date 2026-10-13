@@ -1,0 +1,15 @@
+package com.nhom15.app_dat_xe.ride.dto.response
+
+import java.math.BigDecimal
+
+data class EstimateRideResponse(
+    val pricingRuleId: Long,
+    val distanceKm: BigDecimal,
+    val estimatedDurationMinutes: Long,
+    val baseFare: Long,
+    val distanceFare: Long,
+    val waitingFare: Long,
+    val nightSurcharge: Long,
+    val returnFee: Long,
+    val estimatedFare: Long,
+)

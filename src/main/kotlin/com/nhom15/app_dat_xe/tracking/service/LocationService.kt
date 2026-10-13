@@ -46,7 +46,7 @@ class LocationService(
         }
 
         val unavailable = redisTemplate.hasKey(RedisKeys.driverLock(id)) == true ||
-            redisTemplate.hasKey(RedisKeys.driverCurrentRide(id)) == true
+                redisTemplate.hasKey(RedisKeys.driverCurrentRide(id)) == true
         if (unavailable || redisTemplate.opsForValue().get(statusKey) != "ONLINE") {
             redisTemplate.opsForGeo().remove(RedisKeys.GEO_KEY, id)
             return
@@ -59,7 +59,7 @@ class LocationService(
     fun markDriverOnline(driverId: Long) {
         val id = driverId.toString()
         val unavailable = redisTemplate.hasKey(RedisKeys.driverLock(id)) == true ||
-            redisTemplate.hasKey(RedisKeys.driverCurrentRide(id)) == true
+                redisTemplate.hasKey(RedisKeys.driverCurrentRide(id)) == true
         if (unavailable) return
 
         redisTemplate.opsForValue().set(RedisKeys.driverStatus(id), "ONLINE")

@@ -11,5 +11,5 @@ import com.nhom15.app_dat_xe.common.enums.Role
 data class AuthUser(
     val id: Long,
     val role: Role,
-    val firebaseUid: String
+    val firebaseUid: String = ""
 )

@@ -31,13 +31,15 @@ enum class ErrorCode(val httpStatus: HttpStatus, val defaultMessage: String) {
     ACCOUNT_ALREADY_EXISTS(HttpStatus.CONFLICT, "Tài khoản đã được đăng ký"),
     PHONE_MISMATCH(HttpStatus.BAD_REQUEST, "Số điện thoại không khớp với xác thực Firebase"),
 
-    // ---- Booking ----
-    BOOKING_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy chuyến đi"),
-    INVALID_BOOKING_STATE(HttpStatus.CONFLICT, "Trạng thái chuyến đi không cho phép thao tác này"),
-    BOOKING_ALREADY_ASSIGNED(HttpStatus.CONFLICT, "Chuyến đã có tài xế nhận"),
-    BOOKING_CANNOT_CANCEL(HttpStatus.CONFLICT, "Không thể hủy chuyến ở trạng thái hiện tại"),
+    // ---- Ride ----
+    RIDE_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy chuyến đi"),
+    INVALID_RIDE_STATE(HttpStatus.CONFLICT, "Trạng thái chuyến đi không cho phép thao tác này"),
+    RIDE_ALREADY_ASSIGNED(HttpStatus.CONFLICT, "Chuyến đã có tài xế nhận"),
+    RIDE_ALREADY_ACTIVE(HttpStatus.CONFLICT, "Bạn đang có một chuyến chưa hoàn tất"),
+    RIDE_CANNOT_CANCEL(HttpStatus.CONFLICT, "Không thể hủy chuyến ở trạng thái hiện tại"),
     HANDOVER_REPORT_REQUIRED(HttpStatus.BAD_REQUEST, "Cần hoàn tất biên bản bàn giao xe"),
     PRICING_RULE_NOT_FOUND(HttpStatus.NOT_FOUND, "Chưa có bảng giá áp dụng"),
+    ROUTE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Không thể lấy lộ trình chuyến đi"),
 
     // ---- Matching ----
     OFFER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy lời mời nhận chuyến"),

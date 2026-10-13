@@ -60,7 +60,7 @@ class GlobalExceptionHandler {
     fun handleAccessDenied(e: AccessDeniedException): ResponseEntity<ApiResponse<Nothing>> =
         respond(HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN)
 
-    /** Hai người cùng sửa một bản ghi có @Version (ví dụ Booking, Wallet). */
+    /** Hai người cùng sửa một bản ghi có @Version (ví dụ Ride, Wallet). */
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
     fun handleOptimisticLock(e: ObjectOptimisticLockingFailureException): ResponseEntity<ApiResponse<Nothing>> {
         log.warn("Optimistic lock conflict: {}", e.message)

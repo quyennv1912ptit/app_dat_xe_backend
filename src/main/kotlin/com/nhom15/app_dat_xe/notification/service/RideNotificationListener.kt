@@ -7,7 +7,7 @@ import com.nhom15.app_dat_xe.notification.api.NotificationPort
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.notification.dto.*
 import com.nhom15.app_dat_xe.ride.event.RideStatusChanged
-import com.nhom15.app_dat_xe.ride.repository.RidesRepository
+import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -18,7 +18,7 @@ import org.springframework.transaction.event.TransactionalEventListener
 class RideNotificationListener(
     private val notificationPort: NotificationPort,
     private val driverRepository: DriverRepository,
-    private val ridesRepository: RidesRepository
+    private val rideRepository: RideRepository
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -72,7 +72,7 @@ class RideNotificationListener(
     }
 
     private fun notifyRideCompleted(event: RideStatusChanged) {
-        val ride = ridesRepository.findByIdOrNull(event.rideId) ?: run {
+        val ride = rideRepository.findByIdOrNull(event.rideId) ?: run {
             log.warn("Không tìm thấy chuyến với id {}", event.rideId)
             return
         }
