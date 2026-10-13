@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/bookings")
+@RequestMapping("/rides")
 class RideController(
     private val rideService: RideService,
     private val rideQueryService: RideQueryService,

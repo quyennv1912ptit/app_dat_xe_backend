@@ -32,7 +32,7 @@ interface RideRepository : JpaRepository<Ride, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value = """
-        update bookings
+        update rides
         set driver_id = :driverId,
             status = 'DRIVER_ASSIGNED',
             updated_at = CURRENT_TIMESTAMP,

@@ -21,7 +21,7 @@ import java.math.BigDecimal
 import java.time.Instant
 
 @Entity
-@Table(name = "bookings")
+@Table(name = "rides")
 class Ride(
     @Column(nullable = false, unique = true, length = 32)
     var code: String,

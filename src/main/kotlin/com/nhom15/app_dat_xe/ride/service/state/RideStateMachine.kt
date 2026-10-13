@@ -184,7 +184,7 @@ class RideStateMachine(
 
     private fun findRide(rideId: Long): Ride =
         rideRepository.findById(rideId).orElseThrow {
-            NotFoundException(ErrorCode.BOOKING_NOT_FOUND)
+            NotFoundException(ErrorCode.RIDE_NOT_FOUND)
         }
 
     private fun authorize(ride: Ride, event: RideTransitionEvent, actor: RideActor) {
@@ -260,9 +260,9 @@ class RideStateMachine(
 
     private fun publishRideCompleted(ride: Ride) {
         val driverId = ride.driverId
-            ?: throw ConflictException(ErrorCode.INVALID_BOOKING_STATE, "Ride chưa có tài xế")
+            ?: throw ConflictException(ErrorCode.INVALID_RIDE_STATE, "Ride chưa có tài xế")
         val finalFare = ride.finalFare
-            ?: throw ConflictException(ErrorCode.INVALID_BOOKING_STATE, "Ride chưa có giá cuối cùng")
+            ?: throw ConflictException(ErrorCode.INVALID_RIDE_STATE, "Ride chưa có giá cuối cùng")
 
         eventPublisher.publish(
             RideCompleted(

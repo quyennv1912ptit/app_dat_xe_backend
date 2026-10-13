@@ -36,7 +36,7 @@ class RideQueryService(
             throw BadRequestException(message = "rideId phải lớn hơn 0")
         }
         val ride = rideRepository.findById(rideId).orElseThrow {
-            NotFoundException(ErrorCode.BOOKING_NOT_FOUND)
+            NotFoundException(ErrorCode.RIDE_NOT_FOUND)
         }
         val allowed = when (actor.role) {
             Role.CUSTOMER -> actor.userId == ride.customerId

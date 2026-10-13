@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/admin/bookings")
+@RequestMapping("/admin/rides")
 class AdminRideController(
     private val rideQueryService: RideQueryService,
 ) {

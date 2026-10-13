@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/bookings")
+@RequestMapping("/rides")
 class RideHandoverController(
     private val rideHandoverService: RideHandoverService,
 ) {

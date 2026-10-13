@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
  * Bên nghe nên dùng:
  *   @Async
  *   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
- *   fun on(e: BookingCreated) { ... }
+ *   fun on(e: RideRequested) { ... }
  * để đảm bảo dữ liệu đã commit rồi mới xử lý và không chặn luồng của bên phát.
  */
 @Component

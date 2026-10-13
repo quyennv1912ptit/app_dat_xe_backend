@@ -25,7 +25,7 @@ internal object RideTransitionRules {
     fun resolve(current: RideStatus, event: RideTransitionEvent): RideStatus {
         return transitions[event]?.takeIf { current.canTransitionTo(it) }
             ?: throw ConflictException(
-                ErrorCode.INVALID_BOOKING_STATE,
+                ErrorCode.INVALID_RIDE_STATE,
                 "Không thể thực hiện $event khi ride đang ở trạng thái $current",
             )
     }

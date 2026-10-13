@@ -5,8 +5,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal
 /**
  * Dùng ở controller để lấy người dùng hiện tại:
  *
- *   @GetMapping("/bookings")
- *   fun myBookings(@CurrentUser user: AuthUser) = ...
+ *   @GetMapping("/rides")
+ *   fun myRides(@CurrentUser user: AuthUser) = ...
  */
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.RUNTIME)

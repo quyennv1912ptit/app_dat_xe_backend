@@ -48,7 +48,7 @@ class RideHandoverService(
         }
 
         val ride = rideRepository.findById(rideId).orElseThrow {
-            NotFoundException(ErrorCode.BOOKING_NOT_FOUND)
+            NotFoundException(ErrorCode.RIDE_NOT_FOUND)
         }
         if (ride.driverId != actor.userId) {
             throw ForbiddenException(message = "Bạn không phải tài xế được gán cho chuyến này")
@@ -58,7 +58,7 @@ class RideHandoverService(
         }
         if (ride.status != RideStatus.DRIVER_ARRIVED) {
             throw ConflictException(
-                ErrorCode.INVALID_BOOKING_STATE,
+                ErrorCode.INVALID_RIDE_STATE,
                 "Chỉ tạo biên bản nhận xe khi tài xế đã đến điểm đón",
             )
         }
@@ -110,7 +110,7 @@ class RideHandoverService(
         }
 
         val ride = rideRepository.findById(rideId).orElseThrow {
-            NotFoundException(ErrorCode.BOOKING_NOT_FOUND)
+            NotFoundException(ErrorCode.RIDE_NOT_FOUND)
         }
         if (ride.driverId != actor.userId) {
             throw ForbiddenException(message = "Bạn không phải tài xế được gán cho chuyến này")
@@ -120,7 +120,7 @@ class RideHandoverService(
         }
         if (ride.status != RideStatus.ARRIVED_DESTINATION) {
             throw ConflictException(
-                ErrorCode.INVALID_BOOKING_STATE,
+                ErrorCode.INVALID_RIDE_STATE,
                 "Chỉ tạo biên bản trả xe khi tài xế đã đến điểm trả",
             )
         }
@@ -179,14 +179,14 @@ class RideHandoverService(
             throw BadRequestException(message = "rideId phải lớn hơn 0")
         }
         val ride = rideRepository.findById(rideId).orElseThrow {
-            NotFoundException(ErrorCode.BOOKING_NOT_FOUND)
+            NotFoundException(ErrorCode.RIDE_NOT_FOUND)
         }
         if (ride.customerId != actor.userId) {
             throw ForbiddenException(message = "Bạn không phải khách hàng sở hữu chuyến này")
         }
         if (ride.status != RideStatus.VEHICLE_HANDOVER) {
             throw ConflictException(
-                ErrorCode.INVALID_BOOKING_STATE,
+                ErrorCode.INVALID_RIDE_STATE,
                 "Chỉ xác nhận nhận xe khi ride đang ở trạng thái bàn giao xe",
             )
         }

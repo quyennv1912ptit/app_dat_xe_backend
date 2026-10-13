@@ -6,7 +6,7 @@ import com.nhom15.app_dat_xe.common.event.DomainEvent
 import java.time.Instant
 import java.util.UUID
 
-/** Phát bởi payment khi thanh toán thành công. Booking-core và realtime nghe. */
+/** Phát bởi payment khi thanh toán thành công. Ride và realtime nghe. */
 data class RidePaymentCompleted(
     val rideId: Long,
     val paymentId: Long,

@@ -87,7 +87,7 @@ class RideService(
         }
         val reason = request.reason.trim()
         val currentRide = rideRepository.findById(rideId).orElseThrow {
-            NotFoundException(ErrorCode.BOOKING_NOT_FOUND)
+            NotFoundException(ErrorCode.RIDE_NOT_FOUND)
         }
         // CANCEL có nhiều trạng thái đầu vào; giữ giá trị trước khi state machine sửa entity.
         val previousStatus = currentRide.status

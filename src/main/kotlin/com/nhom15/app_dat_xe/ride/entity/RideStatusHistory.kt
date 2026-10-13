@@ -12,10 +12,10 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 
 @Entity
-@Table(name = "booking_status_histories")
+@Table(name = "ride_status_histories")
 class RideStatusHistory(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "booking_id", nullable = false)
+    @JoinColumn(name = "ride_id", nullable = false)
     var ride: Ride,
 
     @Enumerated(EnumType.STRING)

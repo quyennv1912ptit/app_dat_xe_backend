@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/bookings")
+@RequestMapping("/rides")
 class RideProgressController(
     private val rideProgressService: RideProgressService,
 ) {

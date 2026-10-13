@@ -14,11 +14,11 @@ import jakarta.persistence.UniqueConstraint
 @Entity
 @Table(
     name = "vehicle_handover_reports",
-    uniqueConstraints = [UniqueConstraint(name = "uk_handover_booking_phase", columnNames = ["booking_id", "phase"])],
+    uniqueConstraints = [UniqueConstraint(name = "uk_handover_ride_phase", columnNames = ["ride_id", "phase"])],
 )
 class VehicleHandoverReport(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "booking_id", nullable = false)
+    @JoinColumn(name = "ride_id", nullable = false)
     var ride: Ride,
 
     @Enumerated(EnumType.STRING)
