@@ -1,7 +1,7 @@
 package com.nhom15.app_dat_xe.auth.service
 
-import com.nhom15.app_dat_xe.account.repository.DriversRepository
-import com.nhom15.app_dat_xe.account.repository.UsersRepository
+import com.nhom15.app_dat_xe.account.repository.DriverRepository
+import com.nhom15.app_dat_xe.account.repository.UserRepository
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.notification.ws.AuthTokenVerifier
 import org.springframework.stereotype.Component
@@ -16,15 +16,15 @@ import kotlin.jvm.optionals.getOrNull
 @Component
 class FirebaseTokenVerifier(
     private val firebaseAuthService: FirebaseAuthService,
-    private val usersRepository: UsersRepository,
-    private val driversRepository: DriversRepository
+    private val userRepository: UserRepository,
+    private val driverRepository: DriverRepository
 ) : AuthTokenVerifier {
 
     override fun verify(token: String): Recipient? {
         val uid = firebaseAuthService.verifyToken(token).uid
 
-        usersRepository.findByFirebaseUid(uid).getOrNull()?.let { return Recipient.User(it.id) }
-        driversRepository.findByFirebaseUid(uid).getOrNull()?.let { return Recipient.Driver(it.id) }
+        userRepository.findByFirebaseUid(uid).getOrNull()?.let { return Recipient.User(it.id) }
+        driverRepository.findByFirebaseUid(uid).getOrNull()?.let { return Recipient.Driver(it.id) }
         return null
     }
 }

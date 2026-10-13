@@ -1,6 +1,6 @@
 package com.nhom15.app_dat_xe.matching.service
 
-import com.nhom15.app_dat_xe.account.repository.UsersRepository
+import com.nhom15.app_dat_xe.account.repository.UserRepository
 import com.nhom15.app_dat_xe.common.domain.GeoPoint
 import com.nhom15.app_dat_xe.common.exception.NotFoundException
 import com.nhom15.app_dat_xe.common.redis.RedisKeys
@@ -23,13 +23,13 @@ class RideOfferBuilder(
     private val ridesRepository: RidesRepository,
     private val mapService: MapService,
     private val redisTemplate: StringRedisTemplate,
-    private val usersRepository: UsersRepository
+    private val userRepository: UserRepository
 ) {
     fun build(rideId: Long, driverId: Long, expiresAt: Long): RideOfferPayload {
         val ride = ridesRepository.findByIdOrNull(rideId)
             ?: throw NotFoundException(message = "Không tìm thấy chuyến $rideId")
 
-        val customer = usersRepository.findByIdOrNull(ride.customerId)
+        val customer = userRepository.findByIdOrNull(ride.customerId)
 
         val route = mapService.getDistanceAndDuration(
             origin = "${ride.pickup.geoPoint.lng},${ride.pickup.geoPoint.lat}",

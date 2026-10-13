@@ -13,21 +13,29 @@ import java.time.Instant
 @Table(
     name = "rides",
     indexes = [
+        Index(name = "idx_rides_customer_created", columnList = "customer_id, created_at"),
         Index(name = "idx_rides_customer_status", columnList = "customer_id, status"),
         Index(name = "idx_rides_driver_status", columnList = "driver_id, status"),
-        Index(name = "idx_rides_status_scheduled", columnList = "status, scheduled_at")
+        Index(name = "idx_rides_status_scheduled", columnList = "status, scheduled_at"),
+        Index(name = "idx_rides_vehicle", columnList = "vehicle_id")
     ]
 )
-class Rides(
+class Ride(
     @Column(name = "customer_id", nullable = false)
     val customerId: Long,
 
     @Column(name = "driver_id")
     var driverId: Long? = null,
 
+    @Column(name = "vehicle_id", nullable = false)
+    var vehicleId: Long,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    var status: RideStatus = RideStatus.SEARCHING,
+    var status: RideStatus = RideStatus.PENDING,
+
+    @Column(name = "type", nullable = false, length = 16)
+    var type: String,
 
     @Embedded
     @AttributeOverrides(
@@ -63,7 +71,7 @@ class Rides(
     var finalFare: Long? = null,
 
     @Column(name = "discount_amount")
-    var discountAmount: Long = 0, // Bổ sung để xử lý mã giảm giá
+    var discountAmount: Long = 0,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 30)
@@ -91,7 +99,14 @@ class Rides(
     var cancelledAt: Instant? = null,
 
     @Column(name = "cancel_reason")
-    var cancelReason: String? = null
+    var cancelReason: String? = null,
+
+    @Column(name = "cancelled_by")
+    var cancelledBy: Long? = null,
+
+    @Column(name = "cancelled_by_role", length = 20)
+    var cancelledByRole: String? = null
+
 ) : BaseEntity() {
 
     @Version

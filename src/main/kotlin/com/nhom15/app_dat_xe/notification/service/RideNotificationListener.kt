@@ -1,6 +1,6 @@
 package com.nhom15.app_dat_xe.notification.service
 
-import com.nhom15.app_dat_xe.account.repository.DriversRepository
+import com.nhom15.app_dat_xe.account.repository.DriverRepository
 import com.nhom15.app_dat_xe.common.enums.ActorRole
 import com.nhom15.app_dat_xe.common.enums.RideStatus
 import com.nhom15.app_dat_xe.notification.api.NotificationPort
@@ -17,7 +17,7 @@ import org.springframework.transaction.event.TransactionalEventListener
 @Service
 class RideNotificationListener(
     private val notificationPort: NotificationPort,
-    private val driversRepository: DriversRepository,
+    private val driverRepository: DriverRepository,
     private val ridesRepository: RidesRepository
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -43,7 +43,7 @@ class RideNotificationListener(
 
     private fun notifyDriverAssigned(event: RideStatusChanged) {
         val driverId = event.driverId ?: return
-        val driver = driversRepository.findByIdOrNull(driverId) ?: run {
+        val driver = driverRepository.findByIdOrNull(driverId) ?: run {
             log.warn("Không tìm thấy tài xế {} khi báo chuyến {}", driverId, event.rideId)
             return
         }
@@ -54,7 +54,7 @@ class RideNotificationListener(
                 id = driverId,
                 name = driver.fullName,
                 phone = driver.phoneNumber,
-                rating = driver.averageRating,
+                rating = driver.averageRating ?: 5.0,
                 avatarUrl = driver.avatarUrl
             )
         )

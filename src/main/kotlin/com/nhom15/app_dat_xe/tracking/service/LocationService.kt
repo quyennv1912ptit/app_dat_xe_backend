@@ -1,6 +1,10 @@
 package com.nhom15.app_dat_xe.tracking.service
 
+import com.nhom15.app_dat_xe.account.repository.DriverRepository
 import com.nhom15.app_dat_xe.common.domain.GeoPoint
+import com.nhom15.app_dat_xe.common.enums.DriverStatus
+import com.nhom15.app_dat_xe.common.redis.RedisKeys
+import com.nhom15.app_dat_xe.common.redis.RedisTtl
 import com.nhom15.app_dat_xe.tracking.dto.NearbyDriver
 import org.springframework.data.geo.Circle
 import org.springframework.data.geo.Distance
@@ -10,15 +14,14 @@ import org.springframework.data.redis.connection.RedisGeoCommands
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import java.time.Duration
 
 @Service
-class LocationService(private val redisTemplate: StringRedisTemplate) {
+class LocationService(
+    private val redisTemplate: StringRedisTemplate,
+    private val driverRepository: DriverRepository,
+) {
 
     companion object {
-        private const val GEO_KEY = "available_drivers"
-        private const val ALIVE_PREFIX = "driver:alive:"
-        private val ALIVE_TTL: Duration = Duration.ofSeconds(30)
         private const val MAX_RESULTS = 20L
         private const val MAX_LAT = 85.05112878
     }
@@ -26,14 +29,54 @@ class LocationService(private val redisTemplate: StringRedisTemplate) {
     /** Lưu/cập nhật vị trí driver và gia hạn heartbeat. */
     fun saveDriverLocation(driverId: Long, location: GeoPoint) {
         validate(location)
-        redisTemplate.opsForGeo().add(GEO_KEY, Point(location.lng, location.lat), driverId.toString())
-        redisTemplate.opsForValue().set(aliveKey(driverId), "1", ALIVE_TTL)
+        val id = driverId.toString()
+        redisTemplate.opsForHash<String, String>().putAll(
+            RedisKeys.driverLocation(id),
+            mapOf("lat" to location.lat.toString(), "lng" to location.lng.toString()),
+        )
+        redisTemplate.opsForValue().set(RedisKeys.driverAlive(id), "1", RedisTtl.DRIVER_ALIVE)
+
+        // Driver đã bật nhận chuyến ở DB nhưng Redis vừa được khởi động lại.
+        val statusKey = RedisKeys.driverStatus(id)
+        if (redisTemplate.hasKey(statusKey) != true) {
+            val isOnline = driverRepository.findById(driverId)
+                .map { it.status == DriverStatus.ONLINE }
+                .orElse(false)
+            if (isOnline) redisTemplate.opsForValue().set(statusKey, "ONLINE")
+        }
+
+        val unavailable = redisTemplate.hasKey(RedisKeys.driverLock(id)) == true ||
+            redisTemplate.hasKey(RedisKeys.driverCurrentRide(id)) == true
+        if (unavailable || redisTemplate.opsForValue().get(statusKey) != "ONLINE") {
+            redisTemplate.opsForGeo().remove(RedisKeys.GEO_KEY, id)
+            return
+        }
+
+        redisTemplate.opsForGeo().add(RedisKeys.GEO_KEY, Point(location.lng, location.lat), id)
+    }
+
+    /** Đưa tài xế đã bật nhận chuyến vào GEO khi đã có vị trí và heartbeat mới. */
+    fun markDriverOnline(driverId: Long) {
+        val id = driverId.toString()
+        val unavailable = redisTemplate.hasKey(RedisKeys.driverLock(id)) == true ||
+            redisTemplate.hasKey(RedisKeys.driverCurrentRide(id)) == true
+        if (unavailable) return
+
+        redisTemplate.opsForValue().set(RedisKeys.driverStatus(id), "ONLINE")
+        if (redisTemplate.hasKey(RedisKeys.driverAlive(id)) != true) return
+
+        val location = redisTemplate.opsForHash<String, String>().entries(RedisKeys.driverLocation(id))
+        val lat = location["lat"]?.toDoubleOrNull() ?: return
+        val lng = location["lng"]?.toDoubleOrNull() ?: return
+        redisTemplate.opsForGeo().add(RedisKeys.GEO_KEY, Point(lng, lat), id)
     }
 
     /** Xóa driver khỏi tập khả dụng (tắt app, nhận chuyến, đang trong chuyến...). */
     fun removeDriver(driverId: Long) {
-        redisTemplate.opsForGeo().remove(GEO_KEY, driverId.toString())
-        redisTemplate.delete(aliveKey(driverId))
+        val id = driverId.toString()
+        redisTemplate.opsForGeo().remove(RedisKeys.GEO_KEY, id)
+        redisTemplate.delete(RedisKeys.driverAlive(id))
+        redisTemplate.opsForValue().set(RedisKeys.driverStatus(id), "OFFLINE")
     }
 
     /** Tìm driver còn online trong bán kính [radiusKm], gần nhất trước. */
@@ -49,7 +92,7 @@ class LocationService(private val redisTemplate: StringRedisTemplate) {
             .limit(MAX_RESULTS)
 
         val found = redisTemplate.opsForGeo()
-            .radius(GEO_KEY, searchArea, args)
+            .radius(RedisKeys.GEO_KEY, searchArea, args)
             ?.content
             ?.mapNotNull { result ->
                 // Member trong Redis là String, bỏ qua phần tử không phải số
@@ -60,7 +103,7 @@ class LocationService(private val redisTemplate: StringRedisTemplate) {
 
         // Lọc driver đã mất kết nối (heartbeat hết hạn)
         val alive = redisTemplate.opsForValue()
-            .multiGet(found.map { (id, _) -> aliveKey(id) })
+            .multiGet(found.map { (id, _) -> RedisKeys.driverAlive(id.toString()) })
             ?: return emptyList()
 
         return found
@@ -77,19 +120,17 @@ class LocationService(private val redisTemplate: StringRedisTemplate) {
     /** Dọn driver hết heartbeat khỏi GEO set. Cần @EnableScheduling. */
     @Scheduled(fixedDelay = 60_000)
     fun cleanupStaleDrivers() {
-        val ids = redisTemplate.opsForZSet().range(GEO_KEY, 0, -1)?.toList() ?: return
+        val ids = redisTemplate.opsForZSet().range(RedisKeys.GEO_KEY, 0, -1)?.toList() ?: return
         if (ids.isEmpty()) return
 
         val alive = redisTemplate.opsForValue()
-            .multiGet(ids.map { ALIVE_PREFIX + it })
+            .multiGet(ids.map { RedisKeys.driverAlive(it) })
             ?: return
         val stale = ids.filterIndexed { i, _ -> alive.getOrNull(i) == null }
         if (stale.isNotEmpty()) {
-            redisTemplate.opsForGeo().remove(GEO_KEY, *stale.toTypedArray())
+            redisTemplate.opsForGeo().remove(RedisKeys.GEO_KEY, *stale.toTypedArray())
         }
     }
-
-    private fun aliveKey(driverId: Long) = "$ALIVE_PREFIX$driverId"
 
     private fun validate(p: GeoPoint) {
         require(p.lng in -180.0..180.0) { "lng phải trong khoảng -180..180" }

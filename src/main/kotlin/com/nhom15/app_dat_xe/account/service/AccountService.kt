@@ -1,9 +1,9 @@
 package com.nhom15.app_dat_xe.account.service
 
-import com.nhom15.app_dat_xe.account.entity.Drivers
-import com.nhom15.app_dat_xe.account.entity.Users
-import com.nhom15.app_dat_xe.account.repository.DriversRepository
-import com.nhom15.app_dat_xe.account.repository.UsersRepository
+import com.nhom15.app_dat_xe.account.entity.Driver
+import com.nhom15.app_dat_xe.account.entity.User
+import com.nhom15.app_dat_xe.account.repository.DriverRepository
+import com.nhom15.app_dat_xe.account.repository.UserRepository
 import com.nhom15.app_dat_xe.common.api.ErrorCode
 import com.nhom15.app_dat_xe.common.enums.Role
 import com.nhom15.app_dat_xe.common.exception.BadRequestException
@@ -26,13 +26,13 @@ data class Account(
 /** Nơi duy nhất biết bảng nào ứng với role nào. AuthService, ProfileService, filter đều đi qua đây. */
 @Service
 class AccountService(
-    private val usersRepository: UsersRepository,
-    private val driversRepository: DriversRepository
+    private val userRepository: UserRepository,
+    private val driverRepository: DriverRepository
 ) {
 
     fun findByUid(uid: String, role: Role): Account? = when (role) {
-        Role.CUSTOMER -> usersRepository.findByFirebaseUid(uid).orElse(null)?.toAccount()
-        Role.DRIVER -> driversRepository.findByFirebaseUid(uid).orElse(null)?.toAccount()
+        Role.CUSTOMER -> userRepository.findByFirebaseUid(uid).orElse(null)?.toAccount()
+        Role.DRIVER -> driverRepository.findByFirebaseUid(uid).orElse(null)?.toAccount()
         Role.ADMIN -> null
     }
 
@@ -43,21 +43,21 @@ class AccountService(
             .mapNotNull { findByUid(uid, it) }
 
     fun getById(id: Long, role: Role): Account = when (role) {
-        Role.CUSTOMER -> usersRepository.findById(id).orElse(null)?.toAccount()
-        Role.DRIVER -> driversRepository.findById(id).orElse(null)?.toAccount()
+        Role.CUSTOMER -> userRepository.findById(id).orElse(null)?.toAccount()
+        Role.DRIVER -> driverRepository.findById(id).orElse(null)?.toAccount()
         Role.ADMIN -> null
     } ?: throw notFound(role)
 
     fun create(uid: String, role: Role, fullName: String?, email: String?, phoneNumber: String): Account =
         when (role) {
-            Role.CUSTOMER -> usersRepository.save(Users().also {
+            Role.CUSTOMER -> userRepository.save(User().also {
                 it.firebaseUid = uid
                 it.fullName = fullName
                 it.email = email
                 it.phoneNumber = phoneNumber
             }).toAccount()
 
-            Role.DRIVER -> driversRepository.save(Drivers().also {
+            Role.DRIVER -> driverRepository.save(Driver().also {
                 it.firebaseUid = uid
                 it.fullName = fullName
                 it.email = email
@@ -69,15 +69,15 @@ class AccountService(
 
     fun updatePhone(id: Long, role: Role, phoneNumber: String): Account = when (role) {
         Role.CUSTOMER -> {
-            val user = usersRepository.findById(id).orElseThrow { notFound(role) }
+            val user = userRepository.findById(id).orElseThrow { notFound(role) }
             user.phoneNumber = phoneNumber
-            usersRepository.save(user).toAccount()
+            userRepository.save(user).toAccount()
         }
 
         Role.DRIVER -> {
-            val driver = driversRepository.findById(id).orElseThrow { notFound(role) }
+            val driver = driverRepository.findById(id).orElseThrow { notFound(role) }
             driver.phoneNumber = phoneNumber
-            driversRepository.save(driver).toAccount()
+            driverRepository.save(driver).toAccount()
         }
 
         Role.ADMIN -> unsupported(role)
@@ -85,15 +85,15 @@ class AccountService(
 
     fun updateAvatar(id: Long, role: Role, avatarUrl: String): Account = when (role) {
         Role.CUSTOMER -> {
-            val user = usersRepository.findById(id).orElseThrow { notFound(role) }
+            val user = userRepository.findById(id).orElseThrow { notFound(role) }
             user.avatarUrl = avatarUrl
-            usersRepository.save(user).toAccount()
+            userRepository.save(user).toAccount()
         }
 
         Role.DRIVER -> {
-            val driver = driversRepository.findById(id).orElseThrow { notFound(role) }
+            val driver = driverRepository.findById(id).orElseThrow { notFound(role) }
             driver.avatarUrl = avatarUrl
-            driversRepository.save(driver).toAccount()
+            driverRepository.save(driver).toAccount()
         }
 
         Role.ADMIN -> unsupported(role)
@@ -105,12 +105,12 @@ class AccountService(
     private fun unsupported(role: Role): Nothing =
         throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Role $role không được hỗ trợ")
 
-    private fun Users.toAccount() = Account(
+    private fun User.toAccount() = Account(
         id = requireNotNull(id), firebaseUid = firebaseUid.orEmpty(), fullName = fullName,
         email = email, phoneNumber = phoneNumber, avatarUrl = avatarUrl, role = Role.CUSTOMER
     )
 
-    private fun Drivers.toAccount() = Account(
+    private fun Driver.toAccount() = Account(
         id = requireNotNull(id), firebaseUid = firebaseUid.orEmpty(), fullName = fullName,
         email = email, phoneNumber = phoneNumber, avatarUrl = avatarUrl, role = Role.DRIVER
     )

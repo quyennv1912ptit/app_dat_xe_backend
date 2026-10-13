@@ -3,17 +3,17 @@ package com.nhom15.app_dat_xe.account.entity
 import com.nhom15.app_dat_xe.common.entity.BaseEntity
 import com.nhom15.app_dat_xe.common.enums.DriverStatus
 import jakarta.persistence.*
-import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.LocalDate
 
 @Entity
 @Table(name = "drivers")
-class Drivers : BaseEntity() {
+class Driver : BaseEntity() {
 
     @Column(name = "firebase_uid", unique = true, nullable = false)
     var firebaseUid: String? = null
 
-    @Column(name = "phone_number", nullable = false)
+    @Column(name = "phone_number", unique = true, nullable = false)
     var phoneNumber: String? = null
 
     @Column(name = "email")
@@ -22,7 +22,7 @@ class Drivers : BaseEntity() {
     @Column(name = "full_name")
     var fullName: String? = null
 
-    @Column(name = "avatar_url") // Lưu URL từ Cloudinary
+    @Column(name = "avatar_url")
     var avatarUrl: String? = null
 
     @Column(name = "license_number")
@@ -39,17 +39,41 @@ class Drivers : BaseEntity() {
     var status: DriverStatus = DriverStatus.OFFLINE
 
     @Column(name = "last_location_update")
-    var lastLocationUpdate: LocalDateTime? = null
+    var lastLocationUpdate: Instant? = null
 
     @Column(name = "average_rating")
-    var averageRating: Double = 5.0
+    var averageRating: Double? = null
 
     @Column(name = "bank_account_number")
     var bankAccountNumber: String? = null
 
-    @Column(name = "wallet_balance", precision = 15, scale = 2)
-    var walletBalance: BigDecimal = BigDecimal.ZERO
+    @Column(name = "income_balance")
+    var incomeBalance: Long = 0
 
-    @Column(name = "pending_payout", precision = 15, scale = 2)
-    var pendingPayout: BigDecimal = BigDecimal.ZERO
+    @Column(name = "credit_balance")
+    var creditBalance: Long = 0
+
+    @Column(name = "acceptance_rate")
+    var acceptanceRate: Double? = null
+
+    @Column(name = "background_check_status")
+    var backgroundCheckStatus: String? = null
+
+    @Column(name = "cancel_rate_30d")
+    var cancelRate30d: Double? = null
+
+    @Column(name = "completion_rate")
+    var completionRate: Double? = null
+
+    @Column(name = "is_flagged")
+    var isFlagged: Boolean = false
+
+    @Column(name = "license_expiry_date")
+    var licenseExpiryDate: LocalDate? = null
+
+    @Column(name = "license_verified")
+    var licenseVerified: Boolean = false
+
+    @Column(name = "total_trips")
+    var totalTrips: Int = 0
 }
