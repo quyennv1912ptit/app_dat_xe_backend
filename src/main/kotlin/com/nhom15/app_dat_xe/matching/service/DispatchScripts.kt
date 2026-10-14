@@ -12,20 +12,21 @@ object DispatchScripts {
      * ARGV[1] = rideId
      * ARGV[2] = deadline (epoch ms): mốc hết hạn lời mời, cùng số với expiresAt gửi cho app tài xế
      * ARGV[3] = thời gian sống của khoá tài xế (giây), lấy từ RedisTtl.DRIVER_LOCK
+     * ARGV[4] = thời gian sống của tập tài xế đã thử (giây)
      *
-     * Trả về driverId được mời, hoặc nil nếu hết ứng viên / chuyến không còn SEARCHING.
+     * Trả về driverId được mời, ROUND_EXHAUSTED nếu hết ứng viên ở vòng hiện tại,
+     * WAIT nếu đã có offer đang chờ, hoặc NOT_SEARCHING nếu chuyến không còn được tìm.
      */
     val OFFER_NEXT = DefaultRedisScript<String>(
         """
-        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING' then return nil end
+        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING' then return 'NOT_SEARCHING' end
+        if redis.call('HEXISTS', KEYS[1], 'currentDriver') == 1 then return 'WAIT' end
 
         while true do
             local d = redis.call('RPOP', KEYS[2])
 
             if not d then
-                redis.call('HSET', KEYS[1], 'status', 'NO_DRIVER_FOUND')
-                redis.call('HDEL', KEYS[1], 'currentDriver')
-                return nil
+                return 'ROUND_EXHAUSTED'
             end
 
             local rejected = redis.call('SISMEMBER', KEYS[3], d)
@@ -38,6 +39,8 @@ object DispatchScripts {
                 redis.call('SET', 'driver:' .. d .. ':lock', ARGV[1], 'EX', ARGV[3])
                 redis.call('SET', 'driver:' .. d .. ':status', 'OFFERED')
                 redis.call('HSET', KEYS[1], 'currentDriver', d)
+                redis.call('SADD', KEYS[3], d)
+                redis.call('EXPIRE', KEYS[3], ARGV[4])
                 redis.call('ZADD', KEYS[4], ARGV[2], ARGV[1] .. ':' .. d)
                 redis.call('HINCRBY', 'driver:' .. d .. ':stats', 'offered', 1)
                 return d
@@ -45,6 +48,52 @@ object DispatchScripts {
         end
         """.trimIndent(),
         String::class.java
+    )
+
+    /** Return the next radius, or finish only after every configured round. */
+    val ADVANCE_ROUND = DefaultRedisScript<String>(
+        """
+        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING' then return 'NOT_SEARCHING' end
+        if redis.call('LLEN', KEYS[2]) > 0
+           or redis.call('HEXISTS', KEYS[1], 'currentDriver') == 1 then
+            return 'WAIT'
+        end
+
+        local round = tonumber(redis.call('HGET', KEYS[1], 'nextRoundIndex')) or 0
+        if round >= #ARGV
+           or not redis.call('HGET', KEYS[1], 'pickupLat')
+           or not redis.call('HGET', KEYS[1], 'pickupLng') then
+            redis.call('HSET', KEYS[1], 'status', 'NO_DRIVER_FOUND')
+            redis.call('HDEL', KEYS[1], 'currentDriver')
+            return 'FINISHED'
+        end
+
+        return tostring(round) .. ':' .. ARGV[round + 1]
+        """.trimIndent(),
+        String::class.java,
+    )
+
+    /** Commit one round's ranked candidates and advance the cursor atomically. */
+    val COMPLETE_ROUND = DefaultRedisScript<Long>(
+        """
+        if redis.call('HGET', KEYS[1], 'status') ~= 'SEARCHING'
+           or tonumber(redis.call('HGET', KEYS[1], 'nextRoundIndex')) ~= tonumber(ARGV[1]) then
+            return 0
+        end
+        if redis.call('LLEN', KEYS[2]) > 0
+           or redis.call('HEXISTS', KEYS[1], 'currentDriver') == 1 then
+            return 0
+        end
+
+        for i = 3, #ARGV do
+            redis.call('LPUSH', KEYS[2], ARGV[i])
+        end
+        if #ARGV > 2 then redis.call('EXPIRE', KEYS[2], ARGV[2]) end
+
+        redis.call('HSET', KEYS[1], 'nextRoundIndex', tonumber(ARGV[1]) + 1)
+        return 1
+        """.trimIndent(),
+        Long::class.java,
     )
 
     /**
