@@ -1,7 +1,10 @@
 package com.nhom15.app_dat_xe.tracking.dto
 
+import com.nhom15.app_dat_xe.common.domain.GeoPoint
+
 data class Route(
-    var distance: Double,
-    var duration: Double,
-    var detailedJson: String
+    val distance: Double,
+    val duration: Double,
+    val detailedJson: String,
+    val coordinates: List<GeoPoint> = emptyList(),
 )

@@ -12,7 +12,7 @@ enum class DeliveryPolicy {
 
 enum class PayloadType(val policy: DeliveryPolicy) {
     // Tài xế
-    RIDE_OFFER(WS_THEN_PUSH),
+    RIDE_OFFER(PUSH_ALSO),
     OFFER_EXPIRED(WS_ONLY),
     OFFER_CANCELLED(WS_ONLY),
 
@@ -22,6 +22,7 @@ enum class PayloadType(val policy: DeliveryPolicy) {
 
     // Cả hai bên
     RIDE_UPDATED(WS_ONLY),
+    HANDOVER_CONFIRMED(PUSH_ALSO),
     RIDE_CANCELLED(PUSH_ALSO),
     RIDE_COMPLETED(PUSH_ALSO),
 

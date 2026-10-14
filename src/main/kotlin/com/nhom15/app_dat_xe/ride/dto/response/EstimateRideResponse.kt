@@ -12,4 +12,6 @@ data class EstimateRideResponse(
     val nightSurcharge: Long,
     val returnFee: Long,
     val estimatedFare: Long,
+    val discountAmount: Long = 0,
+    val payableFare: Long = estimatedFare,
 )

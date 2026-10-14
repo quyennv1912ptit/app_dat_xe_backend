@@ -7,6 +7,7 @@ import com.nhom15.app_dat_xe.notification.api.NotificationPort
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.notification.dto.*
 import com.nhom15.app_dat_xe.ride.event.RideStatusChanged
+import com.nhom15.app_dat_xe.ride.event.PickupHandoverConfirmed
 import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
@@ -39,6 +40,14 @@ class RideNotificationListener(
             RideStatus.NO_DRIVER_FOUND, RideStatus.EXPIRED -> notifyNoDriver(event)
             RideStatus.PENDING, RideStatus.SEARCHING -> Unit
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    fun onPickupHandoverConfirmed(event: PickupHandoverConfirmed) {
+        notificationPort.send(
+            Recipient.Driver(event.driverId),
+            HandoverConfirmedPayload(event.rideId),
+        )
     }
 
     private fun notifyDriverAssigned(event: RideStatusChanged) {

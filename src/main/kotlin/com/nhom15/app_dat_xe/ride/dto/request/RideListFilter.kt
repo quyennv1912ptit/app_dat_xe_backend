@@ -1,12 +1,13 @@
 package com.nhom15.app_dat_xe.ride.dto.request
 
-import com.nhom15.app_dat_xe.common.enums.RideStatus
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.PositiveOrZero
+import jakarta.validation.constraints.Size
 
 data class RideListFilter(
-    val status: RideStatus? = null,
+    @field:Size(max = 256)
+    val status: String? = null,
 
     @field:PositiveOrZero
     val page: Int = 0,

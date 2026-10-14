@@ -7,6 +7,7 @@ import com.nhom15.app_dat_xe.common.enums.Role
 import com.nhom15.app_dat_xe.common.exception.AppException
 import com.nhom15.app_dat_xe.common.exception.BadRequestException
 import com.nhom15.app_dat_xe.common.exception.NotFoundException
+import com.nhom15.app_dat_xe.common.exception.ForbiddenException
 import com.nhom15.app_dat_xe.common.security.AuthUser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -32,7 +33,7 @@ class FirebaseAuthFilter(
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
         val path = request.requestURI
-        return path.startsWith("/api/auth/") || path.startsWith("/uploads/")
+        return path.startsWith("/api/auth/")
     }
 
     override fun doFilterInternal(
@@ -55,27 +56,39 @@ class FirebaseAuthFilter(
 
     private fun authenticate(request: HttpServletRequest, idToken: String) {
         val token = firebaseAuthService.verifyToken(idToken)
-        val accounts = accountService.findAllByUid(token.uid, roleHint(request))
-
-        val account = when {
-            accounts.isEmpty() -> throw NotFoundException(ErrorCode.USER_NOT_FOUND)
-            accounts.size > 1 ->
-                throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Thiếu role (CUSTOMER hoặc DRIVER)")
-            else -> accounts.single()
+        val requestedRole = roleHint(request)
+        val adminClaim = token.claims["admin"] == true ||
+            token.claims["role"]?.toString()?.equals("ADMIN", ignoreCase = true) == true
+        val principal = if (requestedRole == Role.ADMIN || (requestedRole == null && adminClaim)) {
+            if (!adminClaim) throw ForbiddenException(message = "Token không có quyền admin")
+            val adminId = (token.claims["adminId"] as? Number)?.toLong() ?: 0L
+            AuthUser(adminId, Role.ADMIN, token.uid)
+        } else {
+            val accounts = accountService.findAllByUid(token.uid, requestedRole)
+            val account = when {
+                accounts.isEmpty() -> throw NotFoundException(ErrorCode.USER_NOT_FOUND)
+                accounts.size > 1 ->
+                    throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Thiếu role (CUSTOMER hoặc DRIVER)")
+                else -> accounts.single()
+            }
+            AuthUser(account.id, account.role, account.firebaseUid)
         }
 
         val authentication = UsernamePasswordAuthenticationToken(
-            AuthUser(account.id, account.role, account.firebaseUid),
+            principal,
             null,
-            listOf(SimpleGrantedAuthority("ROLE_${account.role.name}"))
+            listOf(SimpleGrantedAuthority("ROLE_${principal.role.name}"))
         )
         authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
         SecurityContextHolder.getContext().authentication = authentication
     }
 
     private fun roleHint(request: HttpServletRequest): Role? =
-        (request.getHeader("X-Role") ?: request.getParameter("role"))
-            ?.let { runCatching { Role.valueOf(it.trim().uppercase()) }.getOrNull() }
+        (request.getHeader("X-Role") ?: request.getParameter("role"))?.let { raw ->
+            runCatching { Role.valueOf(raw.trim().uppercase()) }.getOrElse {
+                throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Role phải là CUSTOMER, DRIVER hoặc ADMIN")
+            }
+        }
 
     companion object {
         const val AUTH_ERROR_ATTR = "auth.error"

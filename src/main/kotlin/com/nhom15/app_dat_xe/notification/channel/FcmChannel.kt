@@ -5,6 +5,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
+import com.google.firebase.messaging.AndroidConfig
 import com.nhom15.app_dat_xe.common.websocket.WsEnvelope
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.notification.token.DeviceTokenRepository
@@ -51,6 +52,11 @@ class FcmChannel(
                 val message = Message.builder()
                     .setToken(token.fcmToken)
                     .putData("payload", payload)
+                    .setAndroidConfig(
+                        AndroidConfig.builder()
+                            .setPriority(AndroidConfig.Priority.HIGH)
+                            .build(),
+                    )
                     .build()
 
                 messaging.send(message)

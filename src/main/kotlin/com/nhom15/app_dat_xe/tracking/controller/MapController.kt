@@ -1,6 +1,7 @@
 package com.nhom15.app_dat_xe.tracking.controller
 
 import com.nhom15.app_dat_xe.common.domain.GeoPoint
+import com.nhom15.app_dat_xe.common.exception.BadRequestException
 import com.nhom15.app_dat_xe.tracking.dto.NearbyDriver
 import com.nhom15.app_dat_xe.tracking.dto.Route
 import com.nhom15.app_dat_xe.tracking.service.MapService
@@ -20,8 +21,24 @@ class MapController(
 ) {
 
     @GetMapping("/geocode")
-    fun getCoordinates(@RequestParam address: String): ResponseEntity<String> {
-        val result = mapService.getCoordinatesFromAddress(address)
+    fun getCoordinates(
+        @RequestParam address: String,
+        @RequestParam(required = false) proximityLng: Double?,
+        @RequestParam(required = false) proximityLat: Double?,
+    ): ResponseEntity<String> {
+        if ((proximityLng == null) != (proximityLat == null)) {
+            throw BadRequestException(message = "proximityLng và proximityLat phải được truyền cùng nhau")
+        }
+        if (proximityLng != null && (!proximityLng.isFinite() || proximityLng !in -180.0..180.0)) {
+            throw BadRequestException(message = "proximityLng phải nằm trong khoảng -180 đến 180")
+        }
+        if (proximityLat != null && (!proximityLat.isFinite() || proximityLat !in -90.0..90.0)) {
+            throw BadRequestException(message = "proximityLat phải nằm trong khoảng -90 đến 90")
+        }
+        val proximity = if (proximityLng != null && proximityLat != null) {
+            GeoPoint(lat = proximityLat, lng = proximityLng)
+        } else null
+        val result = mapService.getCoordinatesFromAddress(address, proximity)
         return ResponseEntity.ok(result)
     }
 

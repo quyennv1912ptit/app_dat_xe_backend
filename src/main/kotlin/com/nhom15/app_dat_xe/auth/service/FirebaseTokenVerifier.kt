@@ -2,6 +2,7 @@ package com.nhom15.app_dat_xe.auth.service
 
 import com.nhom15.app_dat_xe.account.repository.DriverRepository
 import com.nhom15.app_dat_xe.account.repository.UserRepository
+import com.nhom15.app_dat_xe.common.enums.Role
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import com.nhom15.app_dat_xe.notification.ws.AuthTokenVerifier
 import org.springframework.stereotype.Component
@@ -20,11 +21,14 @@ class FirebaseTokenVerifier(
     private val driverRepository: DriverRepository
 ) : AuthTokenVerifier {
 
-    override fun verify(token: String): Recipient? {
+    override fun verify(token: String, roleHint: Role?): Recipient? {
         val uid = firebaseAuthService.verifyToken(token).uid
-
-        userRepository.findByFirebaseUid(uid).getOrNull()?.let { return Recipient.User(it.id) }
-        driverRepository.findByFirebaseUid(uid).getOrNull()?.let { return Recipient.Driver(it.id) }
-        return null
+        return when (roleHint) {
+            Role.CUSTOMER -> userRepository.findByFirebaseUid(uid).getOrNull()?.let { Recipient.User(it.id) }
+            Role.DRIVER -> driverRepository.findByFirebaseUid(uid).getOrNull()?.let { Recipient.Driver(it.id) }
+            Role.ADMIN -> null
+            null -> userRepository.findByFirebaseUid(uid).getOrNull()?.let { Recipient.User(it.id) }
+                ?: driverRepository.findByFirebaseUid(uid).getOrNull()?.let { Recipient.Driver(it.id) }
+        }
     }
 }

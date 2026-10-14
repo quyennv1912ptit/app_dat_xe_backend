@@ -3,6 +3,7 @@ package com.nhom15.app_dat_xe.ride.service
 import com.nhom15.app_dat_xe.common.api.ErrorCode
 import com.nhom15.app_dat_xe.common.api.PageResponse
 import com.nhom15.app_dat_xe.common.enums.Role
+import com.nhom15.app_dat_xe.common.enums.RideStatus
 import com.nhom15.app_dat_xe.common.exception.BadRequestException
 import com.nhom15.app_dat_xe.common.exception.ForbiddenException
 import com.nhom15.app_dat_xe.common.exception.NotFoundException
@@ -14,6 +15,7 @@ import com.nhom15.app_dat_xe.ride.dto.response.RideStatusHistoryResponse
 import com.nhom15.app_dat_xe.ride.dto.response.RideSummaryResponse
 import com.nhom15.app_dat_xe.ride.entity.HandoverPhase
 import com.nhom15.app_dat_xe.ride.repository.HandoverPhotoRepository
+import com.nhom15.app_dat_xe.ride.repository.ACTIVE_RIDE_STATUSES
 import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import com.nhom15.app_dat_xe.ride.repository.RideStatusHistoryRepository
 import com.nhom15.app_dat_xe.ride.repository.VehicleHandoverReportRepository
@@ -29,6 +31,23 @@ class RideQueryService(
     private val reportRepository: VehicleHandoverReportRepository,
     private val photoRepository: HandoverPhotoRepository,
 ) {
+    @Transactional(readOnly = true)
+    fun getActiveRide(actor: AuthUser): RideDetailResponse? {
+        val ride = when (actor.role) {
+            Role.CUSTOMER -> rideRepository.findFirstByCustomerIdAndStatusInOrderByCreatedAtDesc(
+                actor.id,
+                ACTIVE_RIDE_STATUSES,
+            )
+            Role.DRIVER -> rideRepository.findFirstByDriverIdAndStatusInOrderByCreatedAtDesc(
+                actor.id,
+                ACTIVE_RIDE_STATUSES,
+            )
+            Role.ADMIN -> throw ForbiddenException(message = "Chỉ khách hàng và tài xế được xem chuyến đang hoạt động")
+        } ?: return null
+
+        return getDetail(actor, requireNotNull(ride.id))
+    }
+
     // Đọc và tạo DTO trong transaction;
     @Transactional(readOnly = true)
     fun getDetail(actor: AuthUser, rideId: Long): RideDetailResponse {
@@ -84,22 +103,22 @@ class RideQueryService(
         // id giúp thứ tự nhất quán khi nhiều ride có cùng thời gian tạo.
         val sort = Sort.by(Sort.Direction.DESC, "createdAt", "id")
         val pageable = PageRequest.of(filter.page, filter.size, sort)
-        val status = filter.status
+        val statuses = parseStatuses(filter.status)
 
         // Luôn lấy id từ principal, không lấy customerId/driverId do client gửi.
         val rides = when (actor.role) {
             Role.CUSTOMER -> {
-                if (status == null) {
+                if (statuses == null) {
                     rideRepository.findAllByCustomerId(actor.id, pageable)
                 } else {
-                    rideRepository.findAllByCustomerIdAndStatus(actor.id, status, pageable)
+                    rideRepository.findAllByCustomerIdAndStatusIn(actor.id, statuses, pageable)
                 }
             }
             Role.DRIVER -> {
-                if (status == null) {
+                if (statuses == null) {
                     rideRepository.findAllByDriverId(actor.id, pageable)
                 } else {
-                    rideRepository.findAllByDriverIdAndStatus(actor.id, status, pageable)
+                    rideRepository.findAllByDriverIdAndStatusIn(actor.id, statuses, pageable)
                 }
             }
             Role.ADMIN -> throw ForbiddenException()
@@ -125,15 +144,28 @@ class RideQueryService(
 
         val sort = Sort.by(Sort.Direction.DESC, "createdAt", "id")
         val pageable = PageRequest.of(filter.page, filter.size, sort)
-        val status = filter.status
+        val statuses = parseStatuses(filter.status)
         // Admin đọc toàn hệ thống; không lọc ride theo userId của admin.
-        val rides = if (status == null) {
+        val rides = if (statuses == null) {
             rideRepository.findAll(pageable)
         } else {
-            rideRepository.findAllByStatus(status, pageable)
+            rideRepository.findAllByStatusIn(statuses, pageable)
         }
 
         return PageResponse.from(rides) { ride -> RideResponseMapper.summary(ride) }
+    }
+
+    private fun parseStatuses(raw: String?): List<RideStatus>? {
+        if (raw == null) return null
+        val values = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        if (values.isEmpty()) {
+            throw BadRequestException(message = "status phải chứa ít nhất một trạng thái")
+        }
+        return values.distinct().map { value ->
+            runCatching { RideStatus.valueOf(value.uppercase()) }.getOrElse {
+                throw BadRequestException(message = "Trạng thái chuyến không hợp lệ: $value")
+            }
+        }
     }
 
 }

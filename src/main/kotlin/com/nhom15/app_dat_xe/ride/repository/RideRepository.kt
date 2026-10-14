@@ -81,9 +81,15 @@ interface RideRepository : JpaRepository<Ride, Long> {
 
     fun findAllByCustomerIdAndStatus(customerId: Long, status: RideStatus, pageable: Pageable): Page<Ride>
 
+    fun findAllByCustomerIdAndStatusIn(customerId: Long, statuses: Collection<RideStatus>, pageable: Pageable): Page<Ride>
+
     fun findAllByDriverIdAndStatus(driverId: Long, status: RideStatus, pageable: Pageable): Page<Ride>
 
+    fun findAllByDriverIdAndStatusIn(driverId: Long, statuses: Collection<RideStatus>, pageable: Pageable): Page<Ride>
+
     fun findAllByStatus(status: RideStatus, pageable: Pageable): Page<Ride>
+
+    fun findAllByStatusIn(statuses: Collection<RideStatus>, pageable: Pageable): Page<Ride>
 
     // =========================================================================
     // 4. NHÓM HÀM CẬP NHẬT TRẠNG THÁI (Ngăn Race Condition)

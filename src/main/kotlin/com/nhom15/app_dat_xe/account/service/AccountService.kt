@@ -99,6 +99,24 @@ class AccountService(
         Role.ADMIN -> unsupported(role)
     }
 
+    fun updateProfile(id: Long, role: Role, fullName: String, email: String?, phoneNumber: String): Account = when (role) {
+        Role.CUSTOMER -> {
+            val user = userRepository.findById(id).orElseThrow { notFound(role) }
+            user.fullName = fullName.trim()
+            user.email = email?.trim()?.takeIf(String::isNotEmpty)
+            user.phoneNumber = phoneNumber.trim()
+            userRepository.saveAndFlush(user).toAccount()
+        }
+        Role.DRIVER -> {
+            val driver = driverRepository.findById(id).orElseThrow { notFound(role) }
+            driver.fullName = fullName.trim()
+            driver.email = email?.trim()?.takeIf(String::isNotEmpty)
+            driver.phoneNumber = phoneNumber.trim()
+            driverRepository.saveAndFlush(driver).toAccount()
+        }
+        Role.ADMIN -> unsupported(role)
+    }
+
     private fun notFound(role: Role) =
         NotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản $role")
 

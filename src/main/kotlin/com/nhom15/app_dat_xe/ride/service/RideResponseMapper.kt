@@ -16,7 +16,7 @@ import com.nhom15.app_dat_xe.ride.entity.RideStatusHistory
 import com.nhom15.app_dat_xe.ride.entity.RideType
 
 internal object RideResponseMapper {
-    fun estimate(quote: RideQuote) = EstimateRideResponse(
+    fun estimate(quote: RideQuote, discountAmount: Long = 0) = EstimateRideResponse(
         pricingRuleId = quote.pricingRuleId,
         distanceKm = quote.distanceKm,
         estimatedDurationMinutes = quote.estimatedDurationMinutes,
@@ -26,11 +26,16 @@ internal object RideResponseMapper {
         nightSurcharge = quote.nightSurcharge,
         returnFee = quote.returnFee,
         estimatedFare = quote.estimatedFare,
+        discountAmount = discountAmount,
+        payableFare = (quote.estimatedFare - discountAmount).coerceAtLeast(0),
     )
 
     fun create(ride: Ride) = CreateRideResponse(
         id = ride.id, status = ride.status,
-        estimatedFare = ride.fareEstimate, createdAt = ride.createdAt,
+        estimatedFare = ride.fareEstimate,
+        createdAt = ride.createdAt,
+        discountAmount = ride.discountAmount,
+        payableFare = (ride.fareEstimate - ride.discountAmount).coerceAtLeast(0),
     )
 
     fun status(ride: Ride, previousStatus: RideStatus) = RideStatusResponse(

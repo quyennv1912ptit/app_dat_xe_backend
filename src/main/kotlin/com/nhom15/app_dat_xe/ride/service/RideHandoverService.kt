@@ -3,6 +3,7 @@ package com.nhom15.app_dat_xe.ride.service
 import com.nhom15.app_dat_xe.common.api.ErrorCode
 import com.nhom15.app_dat_xe.common.enums.RideStatus
 import com.nhom15.app_dat_xe.common.enums.Role
+import com.nhom15.app_dat_xe.common.event.EventPublisher
 import com.nhom15.app_dat_xe.common.exception.BadRequestException
 import com.nhom15.app_dat_xe.common.exception.ConflictException
 import com.nhom15.app_dat_xe.common.exception.ForbiddenException
@@ -15,6 +16,7 @@ import com.nhom15.app_dat_xe.ride.entity.HandoverPhase
 import com.nhom15.app_dat_xe.ride.entity.HandoverPhoto
 import com.nhom15.app_dat_xe.ride.entity.HandoverPhotoAngle
 import com.nhom15.app_dat_xe.ride.entity.VehicleHandoverReport
+import com.nhom15.app_dat_xe.ride.event.PickupHandoverConfirmed
 import com.nhom15.app_dat_xe.ride.repository.HandoverPhotoRepository
 import com.nhom15.app_dat_xe.ride.repository.RideRepository
 import com.nhom15.app_dat_xe.ride.repository.VehicleHandoverReportRepository
@@ -32,6 +34,7 @@ class RideHandoverService(
     private val reportRepository: VehicleHandoverReportRepository,
     private val photoRepository: HandoverPhotoRepository,
     private val stateMachine: RideStateMachine,
+    private val eventPublisher: EventPublisher,
 ) {
     // Biên bản, ảnh và trạng thái ride phải cùng thành công hoặc cùng rollback.
     @Transactional
@@ -203,6 +206,9 @@ class RideHandoverService(
         if (!report.confirmedByCustomer) {
             report.confirmedByCustomer = true
             reportRepository.saveAndFlush(report)
+            ride.driverId?.let { driverId ->
+                eventPublisher.publish(PickupHandoverConfirmed(rideId = rideId, driverId = driverId))
+            }
         }
         val photos = photoRepository.findAllByReportIdOrderByCreatedAtAsc(report.id)
         return HandoverResponseMapper.toResponse(report, photos)

@@ -1,8 +1,10 @@
 package com.nhom15.app_dat_xe.tracking.service
 
+import com.nhom15.app_dat_xe.common.domain.GeoPoint
 import com.nhom15.app_dat_xe.tracking.dto.Route
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import org.springframework.web.util.UriComponentsBuilder
 import org.springframework.web.client.RestTemplate
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -20,9 +22,16 @@ class MapService {
     private val restTemplate = RestTemplate()
     private val objectMapper = ObjectMapper()
 
-    fun getCoordinatesFromAddress(address: String): String? {
-        val url = "https://api.mapbox.com/geocoding/v5/mapbox.places/$address.json?access_token=${mapboxToken.trim()}"
-        return restTemplate.getForObject(url, String::class.java)
+    fun getCoordinatesFromAddress(address: String, proximity: GeoPoint? = null): String? {
+        val builder = UriComponentsBuilder
+            .fromUriString("https://api.mapbox.com/geocoding/v5/mapbox.places")
+            .pathSegment("$address.json")
+            .queryParam("access_token", mapboxToken.trim())
+            .queryParam("country", "vn")
+            .queryParam("language", "vi")
+            .queryParam("autocomplete", "true")
+        proximity?.let { builder.queryParam("proximity", "${it.lng},${it.lat}") }
+        return restTemplate.getForObject(builder.build().encode().toUri(), String::class.java)
     }
 
     fun getDistanceAndDuration(origin: String, destination: String): Route {
@@ -35,8 +44,13 @@ class MapService {
 
             val distance = routeNode.path("distance").asDouble()
             val duration = routeNode.path("duration").asDouble()
+            val coordinates = routeNode.path("geometry").path("coordinates")
+                .mapNotNull { point ->
+                    if (!point.isArray || point.size() < 2) return@mapNotNull null
+                    GeoPoint(lat = point[1].asDouble(), lng = point[0].asDouble())
+                }
 
-            Route(distance, duration, result ?: "")
+            Route(distance, duration, result ?: "", coordinates)
         } catch (e: Exception) {
             Route(0.0, 0.0, result ?: "")
         }

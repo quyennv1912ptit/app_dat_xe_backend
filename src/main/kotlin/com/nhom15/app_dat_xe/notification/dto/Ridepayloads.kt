@@ -10,6 +10,13 @@ data class RideUpdatedPayload(
     override val type: PayloadType get() = PayloadType.RIDE_UPDATED
 }
 
+data class HandoverConfirmedPayload(
+    val rideId: Long,
+    val confirmedByCustomer: Boolean = true,
+) : NotificationPayload {
+    override val type: PayloadType get() = PayloadType.HANDOVER_CONFIRMED
+}
+
 data class RideCancelledPayload(
     val rideId: Long,
     val reason: String?

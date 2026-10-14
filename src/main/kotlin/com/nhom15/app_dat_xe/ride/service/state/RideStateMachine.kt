@@ -80,7 +80,7 @@ class RideStateMachine(
         if (nextStatus == RideStatus.COMPLETED) ride.completedAt = Instant.now()
 
         if (nextStatus == RideStatus.COMPLETED && ride.finalFare == null) {
-            ride.finalFare = ride.fareEstimate
+            ride.finalFare = (ride.fareEstimate - ride.discountAmount).coerceAtLeast(0)
         }
 
         ride.status = nextStatus
