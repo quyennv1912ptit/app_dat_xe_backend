@@ -29,6 +29,7 @@ import com.nhom15.app_dat_xe.ride.service.state.RideStateMachine
 import com.nhom15.app_dat_xe.ride.service.state.RideTransitionCommand
 import com.nhom15.app_dat_xe.ride.service.state.RideTransitionEvent
 import com.nhom15.app_dat_xe.ride.service.state.customerRideActor
+import com.nhom15.app_dat_xe.voucher.service.VoucherService
 import java.time.Instant
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -40,6 +41,7 @@ class RideService(
     private val quoteProvider: RideQuoteProvider,
     private val stateMachine: RideStateMachine,
     private val eventPublisher: EventPublisher,
+    private val voucherService: VoucherService,
 ) {
 
     @Transactional
@@ -62,14 +64,17 @@ class RideService(
             pricingAt = request.scheduledAt ?: Instant.now(),
         )
         val quote = quoteProvider.quote(quoteInput)
+        val appliedVoucher = voucherService.calculate(actor, request.voucherCode, quote.estimatedFare)
 
         val pendingRide = rideRepository.saveAndFlush(
             request.toRide(
                 customerId = actor.id,
                 vehicle = vehicle,
                 quote = quote,
+                discountAmount = appliedVoucher?.discountAmount ?: 0,
             ),
         )
+        appliedVoucher?.let { voucherService.consume(actor.id, it, pendingRide.id) }
         stateMachine.recordCreated(pendingRide, actor.id)
 
         val ride = if (request.type == RideType.INSTANT) {
@@ -128,6 +133,7 @@ class RideService(
         customerId: Long,
         vehicle: CustomerVehicleSnapshot,
         quote: RideQuote,
+        discountAmount: Long,
     ) = Ride(
         customerId = customerId,
         vehicleId = vehicle.id,
@@ -142,7 +148,7 @@ class RideService(
         dropoff = Location( GeoPoint(dropoffLat, dropoffLng), dropoffAddress),
         distanceKm = quote.distanceKm.toDouble(),
         fareEstimate = quote.estimatedFare,
-    )
+    ).also { it.discountAmount = discountAmount }
 
     private fun startSearching(
         ride: Ride,

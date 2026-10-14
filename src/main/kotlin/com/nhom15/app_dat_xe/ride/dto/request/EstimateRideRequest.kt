@@ -1,5 +1,7 @@
 package com.nhom15.app_dat_xe.ride.dto.request
 
+import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Future
@@ -38,4 +40,9 @@ data class EstimateRideRequest(
 
     @field:Future
     val scheduledAt: Instant? = null,
+
+    @JsonProperty("voucher_code")
+    @JsonAlias("voucherCode")
+    @field:Size(max = 255)
+    val voucherCode: String? = null,
 )

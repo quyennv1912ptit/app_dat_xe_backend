@@ -2,6 +2,7 @@ package com.nhom15.app_dat_xe.account.controller
 
 import com.nhom15.app_dat_xe.account.dto.ProfileResponse
 import com.nhom15.app_dat_xe.account.dto.UpdateAvatarRequest
+import com.nhom15.app_dat_xe.account.dto.UpdateProfileRequest
 import com.nhom15.app_dat_xe.account.service.ProfileService
 import com.nhom15.app_dat_xe.common.api.ApiResponse
 import com.nhom15.app_dat_xe.common.security.AuthUser
@@ -32,6 +33,12 @@ class ProfileController(
         @Valid @RequestBody request: UpdateAvatarRequest
     ): ApiResponse<ProfileResponse> =
         ApiResponse.ok(profileService.updateAvatar(user, request.avatarUrl))
+
+    @PutMapping
+    fun updateProfile(
+        @CurrentUser user: AuthUser,
+        @Valid @RequestBody request: UpdateProfileRequest,
+    ): ApiResponse<ProfileResponse> = ApiResponse.ok(profileService.updateProfile(user, request))
 
     @PostMapping("/avatar/upload")
     fun uploadAvatar(

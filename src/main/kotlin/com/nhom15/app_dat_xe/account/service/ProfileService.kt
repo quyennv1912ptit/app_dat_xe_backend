@@ -1,12 +1,15 @@
 package com.nhom15.app_dat_xe.account.service
 
 import com.nhom15.app_dat_xe.account.dto.ProfileResponse
+import com.nhom15.app_dat_xe.account.dto.UpdateProfileRequest
 import com.nhom15.app_dat_xe.common.api.ErrorCode
 import com.nhom15.app_dat_xe.common.exception.BadRequestException
+import com.nhom15.app_dat_xe.common.exception.ConflictException
 import com.nhom15.app_dat_xe.common.security.AuthUser
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
+import org.springframework.dao.DataIntegrityViolationException
 
 /** Người dùng lấy từ [AuthUser] (do filter đặt), service không tự verify token nữa. */
 @Service
@@ -26,6 +29,19 @@ class ProfileService(
             throw BadRequestException(ErrorCode.VALIDATION_ERROR, "Đường dẫn ảnh không hợp lệ")
         }
         return accountService.updateAvatar(user.id, user.role, url).toProfileResponse()
+    }
+
+    @Transactional
+    fun updateProfile(user: AuthUser, request: UpdateProfileRequest): ProfileResponse = try {
+        accountService.updateProfile(
+            user.id,
+            user.role,
+            request.fullName,
+            request.email,
+            request.phoneNumber,
+        ).toProfileResponse()
+    } catch (_: DataIntegrityViolationException) {
+        throw ConflictException(ErrorCode.PHONE_ALREADY_EXISTS, "Số điện thoại hoặc email đã được sử dụng")
     }
 
     @Transactional

@@ -8,12 +8,14 @@ import com.nhom15.app_dat_xe.common.security.AuthUser
 import com.nhom15.app_dat_xe.ride.dto.internal.RideQuoteInput
 import com.nhom15.app_dat_xe.ride.dto.request.EstimateRideRequest
 import com.nhom15.app_dat_xe.ride.dto.response.EstimateRideResponse
+import com.nhom15.app_dat_xe.voucher.service.VoucherService
 import java.time.Instant
 import org.springframework.stereotype.Service
 
 @Service
 class RideEstimateService(
     private val quoteProvider: RideQuoteProvider,
+    private val voucherService: VoucherService,
 ) {
     fun estimateRide(actor: AuthUser, request: EstimateRideRequest): EstimateRideResponse {
         if (actor.role != Role.CUSTOMER) {
@@ -32,7 +34,8 @@ class RideEstimateService(
             pricingAt = scheduledAt ?: now,
         )
         val quote = quoteProvider.quote(input)
-        return RideResponseMapper.estimate(quote)
+        val voucher = voucherService.calculate(actor, request.voucherCode, quote.estimatedFare)
+        return RideResponseMapper.estimate(quote, voucher?.discountAmount ?: 0)
     }
 
     private fun validateEstimate(request: EstimateRideRequest) {

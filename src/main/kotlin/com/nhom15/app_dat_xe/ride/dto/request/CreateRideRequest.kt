@@ -1,5 +1,7 @@
 package com.nhom15.app_dat_xe.ride.dto.request
 
+import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.nhom15.app_dat_xe.common.enums.PaymentMethod
 import com.nhom15.app_dat_xe.ride.entity.RideType
 import jakarta.validation.constraints.DecimalMax
@@ -47,4 +49,9 @@ data class CreateRideRequest(
 
     @field:Size(max = 500)
     val note: String? = null,
+
+    @JsonProperty("voucher_code")
+    @JsonAlias("voucherCode")
+    @field:Size(max = 255)
+    val voucherCode: String? = null,
 )

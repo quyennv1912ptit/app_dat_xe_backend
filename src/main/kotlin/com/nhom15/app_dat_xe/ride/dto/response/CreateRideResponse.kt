@@ -8,4 +8,6 @@ data class CreateRideResponse(
     val status: RideStatus,
     val estimatedFare: Long,
     val createdAt: Instant,
+    val discountAmount: Long = 0,
+    val payableFare: Long = estimatedFare,
 )

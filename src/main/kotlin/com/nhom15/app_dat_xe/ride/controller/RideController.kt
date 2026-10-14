@@ -58,6 +58,16 @@ class RideController(
         return ApiResponse.ok(rideQueryService.getDetail(actor, id))
     }
 
+    @GetMapping("/active")
+    fun getActiveRide(
+        @CurrentUser actor: AuthUser?,
+    ): ApiResponse<RideDetailResponse?> {
+        if (actor == null) {
+            throw AppException(ErrorCode.UNAUTHORIZED)
+        }
+        return ApiResponse.ok(rideQueryService.getActiveRide(actor))
+    }
+
     @GetMapping
     fun listMyRides(
         @CurrentUser actor: AuthUser?,

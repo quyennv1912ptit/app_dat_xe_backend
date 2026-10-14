@@ -1,5 +1,6 @@
 package com.nhom15.app_dat_xe.notification.ws
 
+import com.nhom15.app_dat_xe.common.enums.Role
 import com.nhom15.app_dat_xe.notification.api.Recipient
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.Message
@@ -43,9 +44,10 @@ class StompAuthInterceptor(
     private fun authenticate(accessor: StompHeaderAccessor) {
         val token = extractBearerToken(accessor)
             ?: throw MessagingException("Thiếu header Authorization")
+        val roleHint = extractRoleHint(accessor)
 
         val recipient = try {
-            tokenVerifier.verify(token)
+            tokenVerifier.verify(token, roleHint)
         } catch (e: Exception) {
             log.debug("Xác thực token STOMP thất bại: {}", e.message)   // không log token
             null
@@ -73,8 +75,21 @@ class StompAuthInterceptor(
         return raw.removePrefix(BEARER_PREFIX).trim().takeIf { it.isNotEmpty() }
     }
 
+    private fun extractRoleHint(accessor: StompHeaderAccessor): Role? {
+        val raw = accessor.getFirstNativeHeader(ROLE_HEADER)
+            ?: accessor.getFirstNativeHeader(ROLE_PARAM)
+            ?: return null
+        return when (raw.trim().uppercase()) {
+            "CUSTOMER", "USER" -> Role.CUSTOMER
+            "DRIVER" -> Role.DRIVER
+            else -> throw MessagingException("X-Role phải là CUSTOMER hoặc DRIVER")
+        }
+    }
+
     private companion object {
         const val AUTH_HEADER = "Authorization"
+        const val ROLE_HEADER = "X-Role"
+        const val ROLE_PARAM = "role"
         const val BEARER_PREFIX = "Bearer "
 
         const val ALLOWED_SUBSCRIBE_PREFIX = "/user/queue/"

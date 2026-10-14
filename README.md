@@ -63,7 +63,7 @@ flowchart LR
 2. Các API `/api/auth/**` hỗ trợ login/register/link phone. Những endpoint này là public; chúng xác minh token và trả metadata tài khoản.
 3. Với API cần đăng nhập, client gửi `Authorization: Bearer <Firebase ID token>`.
 4. `FirebaseAuthFilter` xác minh token, lấy Firebase `uid`, rồi tìm account trong bảng CUSTOMER và DRIVER.
-5. Nếu UID có đúng một account, backend dựng principal `AuthUser(id, role, firebaseUid)`. Nếu UID có ở cả hai bảng, request cần `X-Role: CUSTOMER` hoặc `X-Role: DRIVER` (có thể dùng query `role`); nếu không tìm thấy account, request bị từ chối.
+5. Nếu UID có đúng một account, backend dựng principal `AuthUser(id, role, firebaseUid)`. Nếu UID có ở cả hai bảng, request cần `X-Role: CUSTOMER` hoặc `X-Role: DRIVER` (có thể dùng query `role`). Admin dùng Firebase custom claim `admin: true` hoặc `role: "ADMIN"`; có thể kèm `adminId` để lưu ID trong principal.
 6. Các service kiểm tra **cả role và ID**. `AuthUser.id` là ID trong bảng riêng theo role: cùng một số ID có thể đại diện các account khác nhau ở hai bảng.
 
 Ví dụ với thao tác của tài xế: cần kiểm tra `actor.role == DRIVER` **và** `ride.driverId == actor.id`. Principal hiện có `id`, không có thuộc tính `userId`.
@@ -260,15 +260,15 @@ Ví dụ body gửi vị trí:
 
 ## 6. Event và kênh thông báo
 
-Ride status, assignment, no-driver, cancellation và completion phát các event để notification/listener xử lý sau khi dữ liệu ride được ghi. Matching cũng phát offer/timeout events. Policy hiện tại:
+Ride status, assignment, no-driver, cancellation, completion và xác nhận khách bàn giao xe phát event để notification/listener xử lý sau khi dữ liệu ride được ghi. Matching cũng phát offer/timeout events. Policy hiện tại:
 
 | Loại | Delivery policy |
 | --- | --- |
 | `RIDE_OFFER`, `RIDE_ASSIGNED` | WebSocket trước; nếu recipient không reachable thì thử FCM. |
-| `OFFER_EXPIRED`, `OFFER_CANCELLED`, `RIDE_UPDATED` | Chỉ WebSocket. |
+| `OFFER_EXPIRED`, `OFFER_CANCELLED`, `RIDE_UPDATED`, `HANDOVER_CONFIRMED` | Chỉ WebSocket. |
 | `RIDE_NO_DRIVER`, `RIDE_CANCELLED`, `RIDE_COMPLETED` | Gửi WebSocket và thử FCM. |
 
-WebSocket envelope được gửi tới `/user/queue/trip`; vị trí live được gửi tới `/user/queue/rides/{rideId}/location`. Các loại payload và policy là hành vi hiện tại của server, client nên xử lý theo `type` thay vì dựa vào một loại thông báo duy nhất.
+FCM Android dùng priority `HIGH`; trường `data.payload` vẫn là toàn bộ envelope, gồm `messageId` để client dedup. Lịch sử envelope được lưu và trả qua `GET /notifications` (tối đa 100 bản ghi mới nhất). WebSocket envelope được gửi tới `/user/queue/trip`; vị trí live được gửi tới `/user/queue/rides/{rideId}/location`. STOMP CONNECT nhận `Authorization: Bearer ...` và `X-Role: CUSTOMER|DRIVER` để phân giải đúng principal khi một UID có cả hai account.
 
 ## 7. API liên quan
 
@@ -281,13 +281,22 @@ Các route ride/matching/driver không có prefix `/api`; auth, map và một s�
 | `POST` | `/api/auth/register`, `/api/auth/link-phone` | Đăng ký hoặc liên kết số điện thoại đã xác minh. |
 | `POST` | `/rides/estimate` | Báo giá chuyến; cần đăng nhập. |
 | `POST` | `/rides` | Tạo ride; CUSTOMER. |
-| `GET` | `/rides`, `/rides/{id}` | Danh sách cá nhân/chi tiết ride; quyền theo owner hoặc assigned driver. |
+| `GET` | `/rides`, `/rides/{id}`, `/rides/active` | Danh sách (có thể truyền nhiều status, ví dụ `status=PENDING,SEARCHING`), chi tiết và chuyến active mới nhất của CUSTOMER/DRIVER. |
+| `POST` | `/rides/{id}/rating` | CUSTOMER sở hữu chuyến COMPLETED đánh giá 1–5 sao, comment và tip. |
 | `POST` | `/rides/{id}/cancel` | Hủy theo state machine; customer sở hữu hoặc driver được gán tùy trạng thái. |
 | `POST` | `/rides/{id}/start-arriving`, `/rides/{id}/arrived`, `/rides/{id}/start`, `/rides/{id}/arrive-destination`, `/rides/{id}/complete` | Driver được gán cập nhật tiến độ. |
 | `POST` | `/rides/{id}/handover/pickup` | Driver được gán tạo biên bản nhận xe. |
 | `POST` | `/rides/{id}/handover/pickup/confirm` | Customer sở hữu chuyến xác nhận nhận xe. |
 | `POST` | `/rides/{id}/handover/dropoff` | Driver được gán tạo biên bản trả xe. |
 | `PUT` | `/driver/me/availability` | Driver bật/tắt nhận chuyến. |
+| `GET`, `PUT` | `/driver/me/profile` | Đọc/cập nhật license number, class, số năm kinh nghiệm và URL ảnh bằng lái; response có `license_verified`/`license_review_status`. |
+| `PUT` | `/api/admin/drivers/{id}/license-review` | Admin duyệt/từ chối trạng thái xác minh bằng lái. |
+| `GET`, `POST`, `DELETE` | `/vehicles`, `/vehicles/{id}` | CUSTOMER liệt kê, tạo và xóa xe của chính mình. POST nhận `plate_number`, `transmission_type`, `vehicle_type`, `brand`, `model`, `color`. |
+| `GET`, `PUT` | `/api/profile` | Đọc hồ sơ và CUSTOMER/DRIVER cập nhật tên, email, số điện thoại. |
+| `GET` | `/uploads/signature` | Lấy chữ ký Cloudinary theo timestamp để upload ảnh trực tiếp. |
+| `GET` | `/driver/me/wallet` | Đọc `income_balance` và tối đa 100 giao dịch ví mới nhất. |
+| `GET` | `/vouchers` | Liệt kê voucher đang hiệu lực, chưa hết lượt và chưa được account sử dụng. |
+| `GET` | `/notifications` | Lịch sử thông báo cá nhân mới nhất. |
 | `POST` | `/offers/{rideId}/accept`, `/offers/{rideId}/reject` | Driver nhận/từ chối offer. |
 | `GET` | `/api/location/geocode`, `/api/location/directions` | Geocode và route qua Mapbox; cần đăng nhập. |
 | `GET` | `/api/location/nearby-drivers` | Tra cứu tài xế gần; ADMIN. |
@@ -311,6 +320,8 @@ CLOUDINARY_API_SECRET=...
 
 Firebase config hiện yêu cầu classpath resource `src/main/resources/firebase-service-account.json`. Cung cấp credential qua cơ chế secret/local phù hợp và không commit service-account key thật. JPA đặt `ddl-auto=validate`, do đó database phải có schema tương thích trước khi chạy.
 
+Rating, payment, wallet transaction, lịch sử thông báo và ảnh bằng lái cần DDL tại `src/main/resources/db/manual/20261014_frontend_blockers.sql`. Chạy script một lần trên PostgreSQL trước khi bật các API tương ứng; repo hiện chưa có migration runner tự động. Voucher dùng schema `vouchers`/`voucher_usages` có sẵn.
+
 Chạy từ PowerShell:
 
 ```powershell
@@ -331,7 +342,9 @@ Có thể thay các chính sách lịch bằng properties `ride.scheduling.dispa
 - `RideRequested` được xử lý bằng Spring in-process event sau commit. Chưa có outbox hoặc reconciliation job cho ride `SEARCHING` bị bỏ dở nếu process/Redis lỗi đúng thời điểm; cần cơ chế bù để đảm bảo dispatch bền vững khi vận hành production.
 - Kiểm tra active ride của customer là `exists` trước khi insert, chưa phải constraint/lock chống hai request tạo ride đồng thời. `PENDING` scheduled rides không nằm trong active set hiện tại.
 - Chính sách lịch hiện là mặc định 15 phút trước giờ hẹn và hết hạn sau 30 phút grace; đây là giá trị code/config đang chạy, chưa phải quyết định chính sách cuối cùng.
-- REST auth không phân giải ADMIN từ account table hiện tại; một số API có nhánh kiểm tra ADMIN nhưng chưa có luồng cấp principal admin thông thường. `postman-local` là ngoại lệ hẹp, chỉ đọc pricing trên loopback.
-- STOMP verifier chọn user trước driver nếu Firebase UID tồn tại ở cả hai bảng; cần role-aware principal nếu cho phép một UID đồng thời làm customer và driver.
+- Admin được phân giải từ custom claim Firebase; claim phải do môi trường tin cậy cấp. `postman-local` vẫn chỉ mở endpoint đọc pricing trên loopback.
+- Payment tạo bản ghi `PENDING` sau event ride hoàn tất; callback VNPay/MoMo, thu/hoàn tiền và quy tắc ghi có vào ví chưa có. `income_balance` chưa tự tăng theo ride vì chưa có chính sách hoa hồng/đối soát.
+- Chuyến hủy bởi tài xế đã cho phép theo state machine hiện tại; quy tắc lý do, phạt và tìm lại tài xế vẫn cần quyết định nghiệp vụ.
+- Matching vẫn chỉ lọc `transmission` và trạng thái tài xế; `vehicleType` chưa được so khớp với phương tiện/tài xế.
 - Chưa có kiểm chứng end-to-end trong tài liệu này với PostgreSQL, Redis, Firebase, FCM và Mapbox cùng hoạt động; cấu hình local phải được xác nhận ở môi trường chạy thực tế.
 
