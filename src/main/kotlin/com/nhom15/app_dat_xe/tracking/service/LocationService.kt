@@ -22,7 +22,6 @@ class LocationService(
 ) {
 
     companion object {
-        private const val MAX_RESULTS = 20L
         private const val MAX_LAT = 85.05112878
     }
 
@@ -80,16 +79,17 @@ class LocationService(
     }
 
     /** Tìm driver còn online trong bán kính [radiusKm], gần nhất trước. */
-    fun findNearbyDrivers(center: GeoPoint, radiusKm: Double): List<NearbyDriver> {
+    fun findNearbyDrivers(center: GeoPoint, radiusKm: Double, maxResults: Long = 20L): List<NearbyDriver> {
         validate(center)
         require(radiusKm > 0) { "radiusKm phải lớn hơn 0" }
+        require(maxResults > 0) { "maxResults phải lớn hơn 0" }
 
         val searchArea = Circle(Point(center.lng, center.lat), Distance(radiusKm, Metrics.KILOMETERS))
         val args = RedisGeoCommands.GeoRadiusCommandArgs.newGeoRadiusArgs()
             .includeDistance()     // Trả thêm khoảng cách
             .includeCoordinates()  // Trả thêm tọa độ
             .sortAscending()       // Gần nhất trước
-            .limit(MAX_RESULTS)
+            .limit(maxResults)
 
         val found = redisTemplate.opsForGeo()
             .radius(RedisKeys.GEO_KEY, searchArea, args)

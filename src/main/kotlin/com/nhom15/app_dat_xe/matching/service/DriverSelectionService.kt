@@ -14,9 +14,11 @@ class DriverSelectionService(
 ) {
     fun filterAndRankDrivers(
         nearbyDrivers: List<NearbyDriver>,
-        requiredTransmission: Transmission
+        requiredTransmission: Transmission,
+        radiusKm: Double,
     ): List<RankedDriverDTO> {
         if (nearbyDrivers.isEmpty()) return emptyList()
+        require(radiusKm > 0.0) { "radiusKm phải lớn hơn 0" }
 
         // Tạo map id -> driver
         val driversById: Map<Long, Driver> = driverRepository
@@ -31,7 +33,7 @@ class DriverSelectionService(
                 RankedDriverDTO(
                     driverId = nearby.driverId,
                     distance = nearby.distanceKm,
-                    score = calculateScore(driver, nearby.distanceKm)
+                    score = calculateScore(driver, nearby.distanceKm, radiusKm)
                 )
             }
             .sortedByDescending { it.score }
@@ -45,7 +47,7 @@ class DriverSelectionService(
         return true
     }
 
-    private fun calculateScore(driver: Driver, distanceKm: Double): Double {
+    private fun calculateScore(driver: Driver, distanceKm: Double, radiusKm: Double): Double {
         val rating = driver.averageRating
         val experience = driver.yearsOfExperience ?: 0
 
@@ -55,7 +57,8 @@ class DriverSelectionService(
 
         score += (experience * 2.0).coerceAtMost(10.0)
 
-        score -= distanceKm * 5.0
+        // Giữ ảnh hưởng của rating khi tìm ở các vòng bán kính lớn hơn.
+        score -= (distanceKm / radiusKm).coerceIn(0.0, 1.0) * 10.0
 
         return score
     }

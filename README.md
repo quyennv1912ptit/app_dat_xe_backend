@@ -137,7 +137,7 @@ stateDiagram-v2
     PENDING --> CANCELLED: khách hủy
     PENDING --> EXPIRED: lịch quá grace period
     SEARCHING --> DRIVER_ASSIGNED: tài xế accept + DB CAS thành công
-    SEARCHING --> NO_DRIVER_FOUND: hết ứng viên
+    SEARCHING --> NO_DRIVER_FOUND: hết ứng viên ở tất cả vòng matching
     SEARCHING --> CANCELLED: khách hủy
     DRIVER_ASSIGNED --> DRIVER_ARRIVING: tài xế bắt đầu đi đón
     DRIVER_ASSIGNED --> CANCELLED: hủy hợp lệ
@@ -168,50 +168,54 @@ Mọi transition thường đi qua `RideStateMachine`: kiểm tra quyền, trans
 
 ## 4. Matching: chọn, mời và gán tài xế
 
-```mermaid
-sequenceDiagram
-    participant Ride as RideService/Scheduler
-    participant DB as PostgreSQL
-    participant Event as Domain events
-    participant Dispatch as RideDispatchService
-    participant API as RideAcceptanceService/API
-    participant Location as LocationService
-    participant Redis as Redis
-    participant Driver as Ứng dụng tài xế
-    participant Notify as NotificationDispatcher
+### Cấu hình tìm kiếm
 
-    Ride->>DB: lưu PENDING/SEARCHING + history
-    Ride->>Event: publish RideRequested trong transaction
-    DB-->>Event: commit
-    Event->>Dispatch: listener AFTER_COMMIT
-    Dispatch->>Location: tìm tài xế trong bán kính 2 km
-    Location->>Redis: GEO radius, sắp gần trước, tối đa 20
-    Location-->>Dispatch: tài xế có heartbeat còn hạn
-    Dispatch->>DB: nạp hồ sơ tài xế, lọc và rank
-    Dispatch->>Redis: lưu ride state + candidate list
-    Dispatch->>Redis: Lua OFFER_NEXT chọn ứng viên kế tiếp, khóa 20 giây
-    Dispatch->>Notify: RIDE_OFFER + expiresAt
-    Notify-->>Driver: STOMP hoặc FCM theo policy
-    Driver->>API: POST /offers/{rideId}/accept
-    API->>Redis: Lua ACCEPT kiểm tra currentDriver/deadline, chuyển state tạm
-    API->>DB: assignDriverIfSearching (CAS)
-    DB-->>API: kết quả assignment, chỉ một request thắng CAS
-    API->>Redis: xóa queue nếu thành công hoặc rollback nếu thất bại
-    API->>Dispatch: mời tài xế tiếp nếu DB vẫn SEARCHING
+Các giá trị được bind từ `application.properties` vào `MatchingProperties`:
+
+```properties
+matching.search-radii-km=2.0,4.0,7.0,10.0
+matching.max-candidates-per-round=20
+```
+
+Danh sách bán kính phải khác rỗng, tăng dần và lớn hơn 0; `max-candidates-per-round` phải lớn hơn 0. Có thể cấp các giá trị khác nhau theo môi trường mà không sửa mã nguồn. Ứng dụng đọc cấu hình khi khởi động; thay đổi cấu hình cần khởi động lại service để có hiệu lực.
+
+```mermaid
+flowchart TD
+    Start[RideRequested đã commit] --> Init[Lưu ride state, pickup, transmission và round index]
+    Init --> Radius[Chọn bán kính tiếp theo]
+    Radius --> Geo[Redis GEO tìm driver quanh pickup]
+    Geo --> Filter[Lọc heartbeat, trạng thái ONLINE và transmission]
+    Filter --> Exclude[Loại driver đã thử, rank và lấy tối đa N candidate]
+    Exclude --> Complete[COMPLETE_ROUND lưu queue và tăng round index]
+    Complete --> Queue{Queue còn driver để offer?}
+    Queue -- Còn driver --> Offer[OFFER_NEXT giữ chỗ một driver và tạo timeout]
+    Offer --> Accepted{Driver accept?}
+    Accepted -- Có --> Claim[Redis ACCEPT rồi DB CAS]
+    Claim --> Assigned{DB gán thành công?}
+    Assigned -- Có --> Done[DRIVER_ASSIGNED]
+    Assigned -- Không --> Rollback[Rollback Redis và tiếp tục nếu ride còn SEARCHING]
+    Rollback --> Queue
+    Accepted -- Không, reject, timeout hoặc lỗi gửi --> Release[RELEASE nhả lock và giữ driverId đã thử]
+    Release --> Queue
+    Queue -- Hết candidate vòng này --> Advance[ADVANCE_ROUND]
+    Advance --> More{Còn bán kính trong cấu hình?}
+    More -- Có --> Radius
+    More -- Không --> NoDriver[Redis đặt NO_DRIVER_FOUND và phát RideNoDriverFound]
 ```
 
 Các bước hiện tại:
 
 1. Driver phải bật `PUT /driver/me/availability` với `online=true`; tài khoản cần có license đã xác minh và không bị flagged. Driver chỉ thực sự có thể được chọn khi Redis có location/heartbeat mới.
-2. Matching truy vấn Redis GEO quanh pickup (bán kính cố định 2 km, tối đa 20 tài xế gần nhất), rồi lọc hồ sơ đang `ONLINE` và truyền động phù hợp. Với xe số sàn, tài xế có license class `B1` bị loại.
-3. Điểm rank = `rating × 10 + min(yearsOfExperience × 2, 10) − distanceKm × 5`; điểm cao hơn được thử trước. `vehicleType` hiện có trong event/ride nhưng chưa được dùng để lọc tài xế.
-4. Candidate được đưa vào Redis. Lua `OFFER_NEXT` kiểm tra candidate chưa reject, còn heartbeat, ONLINE, chưa có lock/current ride; script đặt trạng thái OFFERED, khóa tài xế 20 giây, đặt timeout offer 15 giây và ghi `currentDriver`.
-5. Offer được gửi với `expiresAt`. Driver có 15 giây để accept/reject. Reject, timeout hoặc không gửi được sẽ giải phóng driver và thử ứng viên kế tiếp. Timeout task quét mỗi giây.
-6. Accept trước hết cập nhật Redis bằng Lua (kiểm tra đúng current driver và deadline), sau đó `RideAssignmentService` dùng DB CAS `SEARCHING → DRIVER_ASSIGNED`. Nếu DB không nhận assignment, Redis được rollback; nếu DB đã commit nhưng listener ném lỗi, service đọc lại DB để nhận diện assignment đã thành công.
-7. Hết candidate làm Redis đánh dấu `NO_DRIVER_FOUND`, phát event để listener cập nhật PostgreSQL nếu ride vẫn `SEARCHING`; status event sau đó thông báo khách.
-8. Khách hủy khi còn tìm tài xế: DB state machine chuyển `CANCELLED`, listener dọn candidate/current offer trong Redis và gửi đóng offer nếu có. Khi ride kết thúc/hủy sau assignment, driver được giải phóng khỏi trạng thái bận.
+2. Khi nhận `RideRequested` sau commit, matching lưu state `SEARCHING`, thông tin pickup/transmission và con trỏ vòng tìm trong Redis. Vòng đầu dùng bán kính đầu tiên trong `matching.search-radii-km`.
+3. Mỗi vòng truy vấn Redis GEO theo bán kính hiện tại, gần trước; `LocationService` chỉ trả driver có heartbeat còn hạn. Matching nạp hồ sơ DB, chỉ giữ driver `ONLINE` phù hợp transmission; với xe số sàn, license class `B1` bị loại. `vehicleType` hiện có trong event/ride nhưng chưa được dùng để lọc tài xế.
+4. Điểm rank = `rating × 10 + min(yearsOfExperience × 2, 10) − min(distanceKm / radiusKm, 1) × 10`. Nếu thiếu rating, dùng `5.0`; nếu thiếu kinh nghiệm, dùng `0`. Điểm cao hơn được thử trước. Chuẩn hóa khoảng cách theo bán kính của vòng để điểm rating vẫn có ảnh hưởng ở vòng xa.
+5. Sau khi loại ID đã nằm trong tập Redis `ride:{id}:rejected`, matching xếp tối đa `max-candidates-per-round` ứng viên vào queue. Tập này được ghi ngay khi `OFFER_NEXT` giữ chỗ offer và tiếp tục được giữ khi driver reject, hết giờ hoặc không gửi được; vòng sau dùng tập đó để không thử lại driver đã offer.
+6. `OFFER_NEXT` chỉ giữ chỗ một driver tại một thời điểm: kiểm tra heartbeat, trạng thái `ONLINE`, lock/current ride, đặt `currentDriver`, trạng thái `OFFERED`, lock 20 giây và timeout offer 15 giây. Driver có 15 giây để accept/reject; timeout task quét mỗi giây.
+7. Chỉ khi queue của vòng hiện tại hết, matching mới gọi `ADVANCE_ROUND` và tìm bán kính tiếp theo. `COMPLETE_ROUND` lưu queue và tăng con trỏ vòng một cách nguyên tử. Khi đã hết bán kính cuối mà không có driver được nhận, Redis chuyển sang `NO_DRIVER_FOUND` và phát `RideNoDriverFound`; listener cập nhật PostgreSQL nếu ride vẫn `SEARCHING`, rồi thông báo khách.
+8. Accept trước hết cập nhật Redis bằng Lua (kiểm tra đúng current driver và deadline), sau đó `RideAssignmentService` dùng DB CAS `SEARCHING → DRIVER_ASSIGNED`. Nếu DB không nhận assignment, Redis được rollback và matching tiếp tục nếu ride còn `SEARCHING`; nếu DB đã commit nhưng listener ném lỗi, service đọc lại DB để nhận diện assignment đã thành công.
+9. Khách hủy khi còn tìm tài xế: DB state machine chuyển `CANCELLED`, listener dọn candidate/current offer trong Redis và gửi đóng offer nếu có. Khi ride kết thúc/hủy sau assignment, driver được giải phóng khỏi trạng thái bận.
 
-Redis TTL chính: offer 15 giây; driver lock 20 giây; heartbeat 30 giây; ride state 24 giờ; candidate list 1 giờ. Candidate/offer/presence là trạng thái tạm; status ride chính thức vẫn nằm trong PostgreSQL.
+Redis TTL chính: offer 15 giây; driver lock 20 giây; heartbeat 30 giây; ride state và tập driver đã thử 24 giờ; candidate list 1 giờ. Candidate/offer/presence là trạng thái tạm; status ride chính thức vẫn nằm trong PostgreSQL. Redis GEO dùng khoảng cách đường chim bay; hiện chưa có bước gọi Mapbox Matrix để xếp lại theo ETA đường thực tế.
 
 ## 5. Tracking: presence, vị trí và chia sẻ với khách
 
@@ -331,4 +335,3 @@ Có thể thay các chính sách lịch bằng properties `ride.scheduling.dispa
 - STOMP verifier chọn user trước driver nếu Firebase UID tồn tại ở cả hai bảng; cần role-aware principal nếu cho phép một UID đồng thời làm customer và driver.
 - Chưa có kiểm chứng end-to-end trong tài liệu này với PostgreSQL, Redis, Firebase, FCM và Mapbox cùng hoạt động; cấu hình local phải được xác nhận ở môi trường chạy thực tế.
 
-Checklist triển khai chi tiết nằm trong [RIDE_MATCHING_TRACKING_CHECKLIST.md](RIDE_MATCHING_TRACKING_CHECKLIST.md).
